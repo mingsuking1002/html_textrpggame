@@ -1,19 +1,28 @@
 {
-    "warrior": {
-        "name": "전사",
-        "icon": "/assets/images/classes/warrior.webp",
-        "weapons": [
-            "sword",
-            "mace",
-            "hammer"
-        ]
-    },
-    "archer": {
-        "name": "궁수",
-        "icon": "/assets/images/classes/archer.webp",
-        "weapons": [
-            "bow",
-            "crossbow"
-        ]
-    }
+  "warrior": {
+    "name": "전사",
+    "icon": "/assets/images/classes/warrior.webp",
+    "weapons": [
+      "sword",
+      "mace",
+      "hammer"
+    ]
+  },
+  "archer": {
+    "name": "궁수",
+    "icon": "/assets/images/classes/archer.webp",
+    "weapons": [
+      "bow",
+      "crossbow",
+      "dagger"
+    ]
+  },
+  "mage": {
+    "name": "마법사",
+    "icon": "/assets/images/classes/mage.webp",
+    "weapons": [
+      "staff",
+      "dagger"
+    ]
+  }
 }

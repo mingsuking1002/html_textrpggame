@@ -81,7 +81,7 @@
     }
 
     .panel {
-      width: min(100%, 720px);
+      width: min(100%, 900px);
       padding: 32px;
       border: 1px solid var(--panel-border);
       border-radius: 28px;
@@ -148,12 +148,18 @@
       border: 1px solid rgba(148, 163, 184, 0.18);
     }
 
-    .lobby-layout {
+    .lobby-layout,
+    .story-layout,
+    .combat-layout,
+    .ending-layout {
       display: grid;
       gap: 20px;
     }
 
-    .lobby-header {
+    .lobby-header,
+    .story-header,
+    .combat-header,
+    .ending-header {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
@@ -174,7 +180,9 @@
       line-height: 1.5;
     }
 
-    .lobby-badge {
+    .lobby-badge,
+    .story-badge,
+    .combat-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -183,43 +191,442 @@
       background: rgba(51, 65, 85, 0.55);
       color: var(--text-subtle);
       font-size: 0.9rem;
-    }
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-    }
-
-    .meta-card {
-      padding: 18px;
-      border-radius: 20px;
-      background: rgba(15, 23, 42, 0.85);
       border: 1px solid rgba(148, 163, 184, 0.14);
     }
 
-    .meta-label {
+    .meta-grid,
+    .story-status-grid,
+    .combat-stat-grid,
+    .ending-grid,
+    .class-grid,
+    .upgrade-grid,
+    .shop-list,
+    .combat-deck-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .meta-grid,
+    .story-status-grid,
+    .combat-stat-grid,
+    .ending-grid {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .class-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-top: 24px;
+    }
+
+    .upgrade-grid {
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .shop-list {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .combat-deck-grid {
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    }
+
+    .meta-card,
+    .story-status-card,
+    .combat-stat-card,
+    .ending-stat-card,
+    .combat-card,
+    .ending-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .meta-label,
+    .story-status-label,
+    .combat-stat-label,
+    .ending-stat-label {
       display: block;
       color: var(--text-subtle);
-      font-size: 0.875rem;
+      font-size: 0.82rem;
+    }
+
+    .meta-value,
+    .story-status-value,
+    .combat-stat-value,
+    .ending-stat-value {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
     }
 
     .meta-value {
-      display: block;
-      margin-top: 8px;
       font-size: 1.6rem;
-      font-weight: 800;
+    }
+
+    .class-card,
+    .shop-card,
+    .upgrade-card {
+      display: grid;
+      gap: 14px;
+      width: 100%;
+      padding: 18px;
+      text-align: left;
+      border-radius: 22px;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      color: var(--text-main);
+    }
+
+    .class-card:disabled {
+      opacity: 0.6;
+    }
+
+    .class-card-head,
+    .shop-card-head,
+    .upgrade-card-head,
+    .combat-hero {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .class-card-copy,
+    .shop-card-copy,
+    .upgrade-card-copy,
+    .combat-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .entity-icon,
+    .ending-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      object-fit: cover;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      flex-shrink: 0;
+    }
+
+    .combat-enemy-icon,
+    .ending-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 24px;
+    }
+
+    .icon-fallback {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-subtle);
+      font-weight: 700;
+    }
+
+    .entity-name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.03em;
+    }
+
+    .entity-subtle {
+      color: var(--text-subtle);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .story-copy {
+      margin: 18px 0 0;
+      color: var(--text-main);
+      line-height: 1.75;
+      font-size: 1rem;
+      white-space: pre-wrap;
+    }
+
+    .chip-list,
+    .choice-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.72);
+      color: var(--text-main);
+      font-size: 0.82rem;
+    }
+
+    .chip-accent {
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.24);
+    }
+
+    .chip-success {
+      background: rgba(52, 211, 153, 0.16);
+      border: 1px solid rgba(52, 211, 153, 0.24);
+    }
+
+    .choice-button {
+      background: rgba(30, 41, 59, 0.88);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .shop-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-subtle);
+      font-size: 0.92rem;
+    }
+
+    .upgrade-card-meta,
+    .upgrade-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .upgrade-card-actions {
+      justify-content: space-between;
+    }
+
+    .combat-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .combat-grid.two-col {
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    .combat-target-shell {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .combat-title {
+      margin: 0;
+      font-size: 1.5rem;
       letter-spacing: -0.04em;
     }
 
-    .placeholder-block {
-      width: min(100%, 720px);
-      padding: 24px;
-      border-radius: 24px;
-      border: 1px dashed rgba(148, 163, 184, 0.26);
-      background: rgba(15, 23, 42, 0.6);
-      color: var(--text-subtle);
+    .hp-bar {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(51, 65, 85, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .hp-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(135deg, var(--success), #0f766e);
+      transition: width 180ms ease;
+    }
+
+    .deck-slot {
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      min-height: 124px;
+      padding: 14px 12px;
+      border-radius: 18px;
+      background: rgba(30, 41, 59, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.14);
       text-align: center;
+    }
+
+    .deck-slot.empty {
+      border-style: dashed;
+      color: var(--text-subtle);
+    }
+
+    .deck-slot-icon {
+      width: 48px;
+      height: 48px;
+    }
+
+    .deck-slot-name {
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+
+    .deck-slot-empty {
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      color: var(--text-subtle);
+    }
+
+    .combat-log {
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .combat-log-entry {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(30, 41, 59, 0.76);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+
+    .spin-result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .spin-slot {
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      padding: 14px 12px;
+      border-radius: 18px;
+      background: rgba(51, 65, 85, 0.38);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      text-align: center;
+      transform-origin: center;
+    }
+
+    .spin-slot-pending {
+      opacity: 0;
+    }
+
+    .spin-summary {
+      grid-column: 1 / -1;
+    }
+
+    .damage-number {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      animation: damage-pop 800ms ease forwards;
+      pointer-events: none;
+    }
+
+    .damage-number.attack,
+    .damage-number.danger {
+      color: var(--danger);
+    }
+
+    .damage-number.heal {
+      color: var(--success);
+    }
+
+    .spin-slot-anim {
+      animation: slot-reveal 300ms ease forwards;
+    }
+
+    .shake {
+      animation: shake 200ms ease;
+    }
+
+    @keyframes slot-reveal {
+      0% {
+        transform: rotateX(90deg);
+        opacity: 0;
+      }
+      100% {
+        transform: rotateX(0deg);
+        opacity: 1;
+      }
+    }
+
+    @keyframes damage-pop {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-36px) scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    @keyframes shake {
+      0%, 100% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-4px);
+      }
+      75% {
+        transform: translateX(4px);
+      }
+    }
+
+    .ending-hero {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .ending-icon-shell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 120px;
+      height: 120px;
+      border-radius: 32px;
+      background: rgba(30, 41, 59, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .ranking-section {
+      display: grid;
+      gap: 14px;
+    }
+
+    .ranking-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ranking-row {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(30, 41, 59, 0.76);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .ranking-rank {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .ranking-score {
+      color: var(--success);
+      font-weight: 700;
     }
 
     #toast-container {
@@ -253,20 +660,14 @@
       border-color: rgba(52, 211, 153, 0.32);
     }
 
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
     [hidden] {
       display: none !important;
+    }
+
+    @media (max-width: 840px) {
+      .combat-grid.two-col {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 720px) {
@@ -276,6 +677,18 @@
 
       .screen {
         min-height: auto;
+      }
+
+      .ending-hero {
+        align-items: flex-start;
+      }
+
+      .ranking-row {
+        grid-template-columns: 48px 1fr;
+      }
+
+      .ranking-score {
+        grid-column: 2;
       }
     }
   </style>
@@ -324,7 +737,7 @@
             <p class="panel-kicker">Lobby</p>
             <h2 id="lobby-title" class="panel-title">원정 준비</h2>
             <p id="lobby-display-name" class="lobby-name">이름 없음</p>
-            <p class="lobby-subtitle">게임 데이터 로드가 완료되었습니다. 다음 Phase에서 런 시작 흐름이 연결됩니다.</p>
+            <p id="lobby-subtitle" class="lobby-subtitle">게임 데이터 로드가 완료되었습니다. 직업을 선택해 새 원정을 시작할 수 있습니다.</p>
           </div>
           <div class="lobby-badge" aria-live="polite">
             <span>Auth UID</span>
@@ -350,39 +763,170 @@
           <button id="btn-upgrade" class="button-secondary" type="button" disabled>강화(결정)</button>
           <button id="btn-logout" class="button-ghost" type="button">로그아웃</button>
         </div>
+        <p id="lobby-run-status" class="status-text" hidden></p>
+      </div>
+    </section>
+
+    <section id="screen-upgrade" class="screen" aria-labelledby="upgrade-title">
+      <div class="panel story-layout">
+        <div class="story-header">
+          <div>
+            <p class="panel-kicker">Upgrade Shop</p>
+            <h2 id="upgrade-title" class="panel-title">강화 상점</h2>
+            <p class="panel-copy">런 종료 후 얻은 결정으로 영구 강화를 구매하면 다음 원정 시작 능력치가 상승합니다.</p>
+          </div>
+          <div class="lobby-badge" aria-live="polite">
+            <span>보유 결정</span>
+            <span id="upgrade-crystals">0</span>
+          </div>
+        </div>
+        <p id="upgrade-empty" class="status-text" hidden>표시할 강화 데이터가 없습니다.</p>
+        <div id="upgrade-list" class="upgrade-grid" aria-label="강화 카드 목록"></div>
+        <div class="actions">
+          <button id="btn-upgrade-back" class="button-secondary" type="button">로비로 돌아가기</button>
+        </div>
       </div>
     </section>
 
     <section id="screen-class-select" class="screen" aria-labelledby="class-select-title">
-      <div class="placeholder-block">
-        <h2 id="class-select-title">직업 선택은 Phase 3에서 연결됩니다.</h2>
-        <div id="class-cards"></div>
+      <div class="panel">
+        <p class="panel-kicker">Class Select</p>
+        <h2 id="class-select-title" class="panel-title">직업 선택</h2>
+        <p id="class-select-copy" class="panel-copy">시작 직업을 고르면 프롤로그와 스토리 루프가 시작됩니다.</p>
+        <div id="class-cards" class="class-grid"></div>
       </div>
     </section>
 
     <section id="screen-story" class="screen" aria-labelledby="story-title">
-      <div class="placeholder-block">
-        <h2 id="story-title">스토리 루프는 Phase 3 이후 연결됩니다.</h2>
-        <p id="story-text"></p>
-        <div id="story-choices"></div>
+      <div class="panel story-layout">
+        <div class="story-header">
+          <div>
+            <p id="story-kicker" class="panel-kicker">Story</p>
+            <h2 id="story-title" class="panel-title">이야기</h2>
+          </div>
+          <div id="story-stage-badge" class="story-badge">Stage 1</div>
+        </div>
+        <p id="story-text" class="story-copy"></p>
+        <div class="story-status-grid" aria-label="현재 런 상태">
+          <article class="story-status-card">
+            <span class="story-status-label">직업</span>
+            <strong id="story-class-name" class="story-status-value">-</strong>
+          </article>
+          <article class="story-status-card">
+            <span class="story-status-label">체력</span>
+            <strong id="story-hp" class="story-status-value">0 / 0</strong>
+          </article>
+          <article class="story-status-card">
+            <span class="story-status-label">골드</span>
+            <strong id="story-gold" class="story-status-value">0</strong>
+          </article>
+          <article class="story-status-card">
+            <span class="story-status-label">가방</span>
+            <strong id="story-deck" class="story-status-value">0 / 0</strong>
+          </article>
+        </div>
+        <p id="story-note" class="status-text"></p>
+        <div id="story-shop" class="shop-list" hidden></div>
+        <div id="story-choices" class="choice-list"></div>
       </div>
     </section>
 
     <section id="screen-combat" class="screen" aria-labelledby="combat-title">
-      <div class="placeholder-block">
-        <h2 id="combat-title">전투 루프는 아직 구현되지 않았습니다.</h2>
-        <div id="combat-hud"></div>
-        <div id="roulette-area"></div>
-        <div id="combat-log" aria-live="polite"></div>
+      <div class="panel combat-layout">
+        <div class="combat-header">
+          <div>
+            <p class="panel-kicker">Combat Loop</p>
+            <h2 id="combat-title" class="panel-title">전투</h2>
+          </div>
+          <div id="combat-source" class="combat-badge">전투 중</div>
+        </div>
+
+        <div id="combat-enemy-shell" class="combat-card combat-target-shell">
+          <div class="combat-hero">
+            <div id="combat-enemy-icon"></div>
+            <div class="combat-copy">
+              <strong id="combat-enemy-name" class="combat-title">적 정보 없음</strong>
+              <span id="combat-enemy-hp-text" class="entity-subtle">0 / 0</span>
+              <div class="hp-bar" aria-label="적 체력">
+                <div id="combat-enemy-hp-fill" class="hp-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="combat-player-shell" class="combat-stat-grid combat-target-shell" aria-label="플레이어 전투 HUD">
+          <article class="combat-stat-card">
+            <span class="combat-stat-label">체력</span>
+            <strong id="combat-player-hp" class="combat-stat-value">0 / 0</strong>
+          </article>
+          <article class="combat-stat-card">
+            <span class="combat-stat-label">골드</span>
+            <strong id="combat-player-gold" class="combat-stat-value">0</strong>
+          </article>
+          <article class="combat-stat-card">
+            <span class="combat-stat-label">스테이지</span>
+            <strong id="combat-player-stage" class="combat-stat-value">1</strong>
+          </article>
+          <article class="combat-stat-card">
+            <span class="combat-stat-label">가방</span>
+            <strong id="combat-deck-count" class="combat-stat-value">0 / 0</strong>
+          </article>
+        </div>
+
+        <div class="combat-grid two-col">
+          <div class="combat-card">
+            <p class="panel-kicker">Deck</p>
+            <div id="combat-deck-grid" class="combat-deck-grid"></div>
+          </div>
+
+          <div class="combat-card">
+            <p class="panel-kicker">Roulette</p>
+            <div class="actions">
+              <button id="btn-combat-spin" class="button-primary" type="button">🎰 룰렛 스핀</button>
+            </div>
+            <p id="combat-spin-status" class="status-text">스핀 버튼으로 다음 턴을 진행합니다.</p>
+            <div id="combat-spin-result" class="spin-result-grid"></div>
+          </div>
+        </div>
+
+        <div class="combat-card">
+          <p class="panel-kicker">Battle Log</p>
+          <div id="combat-log" class="combat-log" aria-live="polite"></div>
+        </div>
       </div>
     </section>
 
     <section id="screen-ending" class="screen" aria-labelledby="ending-title">
-      <div class="placeholder-block">
-        <h2 id="ending-title">엔딩 화면은 Phase 5에서 연결됩니다.</h2>
-        <p id="ending-text"></p>
-        <div id="ending-rewards"></div>
-        <button id="btn-return-lobby" class="button-secondary" type="button">로비로 돌아가기</button>
+      <div class="panel ending-layout">
+        <div class="ending-header">
+          <div>
+            <p id="ending-kicker" class="panel-kicker">Ending</p>
+            <h2 id="ending-title" class="panel-title">엔딩</h2>
+          </div>
+        </div>
+
+        <div class="ending-card ending-hero">
+          <div class="ending-icon-shell">
+            <div id="ending-icon"></div>
+          </div>
+          <div class="combat-copy">
+            <p id="ending-text" class="panel-copy"></p>
+          </div>
+        </div>
+
+        <div id="ending-summary" class="ending-grid" aria-label="엔딩 보상 요약"></div>
+        <div id="ending-meta" class="ending-grid" aria-label="메타 진행도"></div>
+
+        <section id="ranking-section" class="ranking-section" hidden>
+          <p class="panel-kicker">Top Rankings</p>
+          <p id="ranking-status" class="status-text"></p>
+          <div id="ranking-list" class="ranking-list"></div>
+        </section>
+
+        <div class="actions">
+          <button id="btn-ending-primary" class="button-primary" type="button">보상 정산</button>
+          <button id="btn-ending-secondary" class="button-secondary" type="button" hidden>랭킹 건너뛰기</button>
+        </div>
       </div>
     </section>
   </main>

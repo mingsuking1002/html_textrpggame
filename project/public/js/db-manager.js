@@ -4,7 +4,18 @@
  * Firestore 데이터 로드/세이브 관리
  */
 
-import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { getFirestoreDb } from './firebase-init.js';
 
 const GAME_DATA_DOC_IDS = Object.freeze([
@@ -38,6 +49,18 @@ function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizeUpgradeMap(upgrades) {
+  if (!upgrades || typeof upgrades !== 'object' || Array.isArray(upgrades)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(upgrades)
+      .map(([upgradeId, level]) => [upgradeId, Math.max(0, Number(level) || 0)])
+      .filter(([, level]) => level > 0),
+  );
+}
+
 function normalizeAuthSource(authSource, authProfile = null) {
   if (typeof authSource === 'string') {
     return {
@@ -63,6 +86,7 @@ function buildInitialUserDoc(authProfile) {
     totalGoldEarned: 0,
     highestStage: 0,
     crystals: 0,
+    upgrades: {},
     currentRun: {
       isActive: false,
     },
@@ -76,6 +100,7 @@ function buildUserFallback(authProfile) {
     totalGoldEarned: 0,
     highestStage: 0,
     crystals: 0,
+    upgrades: {},
     currentRun: {
       isActive: false,
     },
@@ -147,6 +172,11 @@ export async function loadUserData(authSource, authProfile = null) {
     photoURL: authUser.photoURL,
     ...cloneData(userDoc),
     displayName: userDoc.displayName || authUser.displayName,
+    totalGoldEarned: Math.max(0, Number(userDoc.totalGoldEarned) || 0),
+    highestStage: Math.max(0, Number(userDoc.highestStage) || 0),
+    crystals: Math.max(0, Number(userDoc.crystals) || 0),
+    upgrades: normalizeUpgradeMap(userDoc.upgrades),
+    currentRun: cloneData(userDoc.currentRun || { isActive: false }),
   };
 }
 
@@ -154,6 +184,7 @@ export async function saveCurrentRun(uid, currentRun) {
   const db = getFirestoreDb();
   const userRef = doc(db, 'Users', uid);
 
+  // TODO: Firestore Rules / server validation must restrict write access to auth.uid only.
   await setDoc(
     userRef,
     {
@@ -163,7 +194,33 @@ export async function saveCurrentRun(uid, currentRun) {
   );
 }
 
+export async function saveUserMeta(uid, meta = {}) {
+  const db = getFirestoreDb();
+  const userRef = doc(db, 'Users', uid);
+
+  // TODO: Firestore Rules / server validation must restrict write access to auth.uid only.
+  await setDoc(userRef, cloneData(meta), { merge: true });
+}
+
 export async function submitRanking(rankingEntry) {
   const db = getFirestoreDb();
-  return addDoc(collection(db, 'Rankings'), cloneData(rankingEntry));
+  return addDoc(collection(db, 'Rankings'), {
+    ...cloneData(rankingEntry),
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function loadTopRankings(maxEntries = 10) {
+  const db = getFirestoreDb();
+  const rankingQuery = query(
+    collection(db, 'Rankings'),
+    orderBy('payout', 'desc'),
+    limit(maxEntries),
+  );
+  const snapshot = await getDocs(rankingQuery);
+
+  return snapshot.docs.map((documentSnapshot) => ({
+    id: documentSnapshot.id,
+    ...cloneData(documentSnapshot.data()),
+  }));
 }

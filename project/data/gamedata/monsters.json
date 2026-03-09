@@ -1,128 +1,262 @@
 {
-    "slime": {
-        "name": "슬라임",
-        "hp": 20,
-        "attack": 5,
-        "defense": 2,
-        "expReward": 10,
-        "goldReward": [
-            5,
-            15
-        ],
-        "lootTable": [
-            {
-                "symbolId": "potion",
-                "dropRate": 0.3
-            }
-        ],
-        "icon": "/assets/images/monsters/slime.webp",
-        "tier": 1,
-        "tags": [
-            "normal"
-        ]
-    },
-    "goblin": {
-        "name": "고블린",
-        "hp": 35,
-        "attack": 8,
-        "defense": 3,
-        "expReward": 20,
-        "goldReward": [
-            10,
-            25
-        ],
-        "lootTable": [
-            {
-                "symbolId": "sword",
-                "dropRate": 0.1
-            },
-            {
-                "symbolId": "potion",
-                "dropRate": 0.2
-            }
-        ],
-        "icon": "/assets/images/monsters/goblin.webp",
-        "tier": 1,
-        "tags": [
-            "normal"
-        ]
-    },
-    "skeleton": {
-        "name": "스켈레톤",
-        "hp": 45,
-        "attack": 10,
-        "defense": 5,
-        "expReward": 30,
-        "goldReward": [
-            15,
-            35
-        ],
-        "lootTable": [
-            {
-                "symbolId": "shield",
-                "dropRate": 0.15
-            },
-            {
-                "symbolId": "mace",
-                "dropRate": 0.1
-            }
-        ],
-        "icon": "/assets/images/monsters/skeleton.webp",
-        "tier": 2,
-        "tags": [
-            "normal"
-        ]
-    },
-    "orc_warrior": {
-        "name": "오크 전사",
-        "hp": 60,
-        "attack": 14,
-        "defense": 7,
-        "expReward": 45,
-        "goldReward": [
-            20,
-            50
-        ],
-        "lootTable": [
-            {
-                "symbolId": "hammer",
-                "dropRate": 0.08
-            },
-            {
-                "symbolId": "potion",
-                "dropRate": 0.25
-            }
-        ],
-        "icon": "/assets/images/monsters/orc_warrior.webp",
-        "tier": 2,
-        "tags": [
-            "elite"
-        ]
-    },
-    "dragon": {
-        "name": "드래곤",
-        "hp": 150,
-        "attack": 25,
-        "defense": 15,
-        "expReward": 100,
-        "goldReward": [
-            50,
-            150
-        ],
-        "lootTable": [
-            {
-                "symbolId": "hammer",
-                "dropRate": 0.3
-            },
-            {
-                "symbolId": "crossbow",
-                "dropRate": 0.2
-            }
-        ],
-        "icon": "/assets/images/monsters/dragon.webp",
-        "tier": 3,
-        "tags": [
-            "boss"
-        ]
-    }
+  "slime": {
+    "name": "슬라임",
+    "hp": 20,
+    "attack": 5,
+    "defense": 2,
+    "expReward": 10,
+    "goldReward": [
+      5,
+      15
+    ],
+    "lootTable": [
+      {
+        "symbolId": "potion",
+        "dropRate": 0.3
+      }
+    ],
+    "icon": "/assets/images/monsters/slime.webp",
+    "tier": 1,
+    "tags": [
+      "normal"
+    ]
+  },
+  "goblin": {
+    "name": "고블린",
+    "hp": 35,
+    "attack": 8,
+    "defense": 3,
+    "expReward": 20,
+    "goldReward": [
+      10,
+      25
+    ],
+    "lootTable": [
+      {
+        "symbolId": "sword",
+        "dropRate": 0.1
+      },
+      {
+        "symbolId": "potion",
+        "dropRate": 0.2
+      }
+    ],
+    "icon": "/assets/images/monsters/goblin.webp",
+    "tier": 1,
+    "tags": [
+      "normal"
+    ]
+  },
+  "skeleton": {
+    "name": "스켈레톤",
+    "hp": 45,
+    "attack": 10,
+    "defense": 5,
+    "expReward": 30,
+    "goldReward": [
+      15,
+      35
+    ],
+    "lootTable": [
+      {
+        "symbolId": "shield",
+        "dropRate": 0.15
+      },
+      {
+        "symbolId": "mace",
+        "dropRate": 0.1
+      }
+    ],
+    "icon": "/assets/images/monsters/skeleton.webp",
+    "tier": 2,
+    "tags": [
+      "normal"
+    ]
+  },
+  "orc_warrior": {
+    "name": "오크 전사",
+    "hp": 60,
+    "attack": 14,
+    "defense": 7,
+    "expReward": 45,
+    "goldReward": [
+      20,
+      50
+    ],
+    "lootTable": [
+      {
+        "symbolId": "hammer",
+        "dropRate": 0.08
+      },
+      {
+        "symbolId": "potion",
+        "dropRate": 0.25
+      }
+    ],
+    "icon": "/assets/images/monsters/orc_warrior.webp",
+    "tier": 2,
+    "tags": [
+      "elite"
+    ]
+  },
+  "dragon": {
+    "name": "드래곤",
+    "hp": 150,
+    "attack": 25,
+    "defense": 15,
+    "expReward": 100,
+    "goldReward": [
+      50,
+      150
+    ],
+    "lootTable": [
+      {
+        "symbolId": "hammer",
+        "dropRate": 0.3
+      },
+      {
+        "symbolId": "crossbow",
+        "dropRate": 0.2
+      }
+    ],
+    "icon": "/assets/images/monsters/dragon.webp",
+    "tier": 3,
+    "tags": [
+      "boss"
+    ]
+  },
+  "wolf": {
+    "name": "야생 늑대",
+    "hp": 25,
+    "attack": 7,
+    "defense": 3,
+    "expReward": 18,
+    "goldReward": [
+      8,
+      18
+    ],
+    "lootTable": [
+      {
+        "symbolId": "dagger",
+        "dropRate": 0.18
+      },
+      {
+        "symbolId": "herb",
+        "dropRate": 0.35
+      }
+    ],
+    "icon": "/assets/images/monsters/wolf.webp",
+    "tier": 1,
+    "tags": [
+      "normal"
+    ]
+  },
+  "bandit": {
+    "name": "산적",
+    "hp": 40,
+    "attack": 9,
+    "defense": 4,
+    "expReward": 24,
+    "goldReward": [
+      15,
+      30
+    ],
+    "lootTable": [
+      {
+        "symbolId": "dagger",
+        "dropRate": 0.22
+      },
+      {
+        "symbolId": "spear",
+        "dropRate": 0.1
+      },
+      {
+        "symbolId": "gold_coin",
+        "dropRate": 0.16
+      }
+    ],
+    "icon": "/assets/images/monsters/bandit.webp",
+    "tier": 1,
+    "tags": [
+      "normal"
+    ]
+  },
+  "dark_mage": {
+    "name": "어둠의 마법사",
+    "hp": 50,
+    "attack": 15,
+    "defense": 4,
+    "expReward": 42,
+    "goldReward": [
+      18,
+      42
+    ],
+    "lootTable": [
+      {
+        "symbolId": "staff",
+        "dropRate": 0.16
+      },
+      {
+        "symbolId": "elixir",
+        "dropRate": 0.12
+      }
+    ],
+    "icon": "/assets/images/monsters/dark_mage.webp",
+    "tier": 2,
+    "tags": [
+      "elite"
+    ]
+  },
+  "golem": {
+    "name": "돌 골렘",
+    "hp": 80,
+    "attack": 12,
+    "defense": 12,
+    "expReward": 56,
+    "goldReward": [
+      22,
+      48
+    ],
+    "lootTable": [
+      {
+        "symbolId": "helmet",
+        "dropRate": 0.2
+      },
+      {
+        "symbolId": "armor",
+        "dropRate": 0.12
+      }
+    ],
+    "icon": "/assets/images/monsters/golem.webp",
+    "tier": 2,
+    "tags": [
+      "elite"
+    ]
+  },
+  "lich": {
+    "name": "리치",
+    "hp": 120,
+    "attack": 22,
+    "defense": 10,
+    "expReward": 96,
+    "goldReward": [
+      45,
+      100
+    ],
+    "lootTable": [
+      {
+        "symbolId": "staff",
+        "dropRate": 0.22
+      },
+      {
+        "symbolId": "elixir",
+        "dropRate": 0.28
+      }
+    ],
+    "icon": "/assets/images/monsters/lich.webp",
+    "tier": 3,
+    "tags": [
+      "boss"
+    ]
+  }
 }

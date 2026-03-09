@@ -4,21 +4,67 @@
  * 메인 컨트롤러 — 모듈 조립 + 상태 전이 + 이벤트 바인딩
  */
 
-import { loadGameData, loadUserData } from './db-manager.js';
-import { getState, setState, subscribe, AppState } from './game-state.js';
+import {
+  loadGameData,
+  loadTopRankings,
+  loadUserData,
+  saveCurrentRun,
+  saveUserMeta,
+  submitRanking,
+} from './db-manager.js';
+import { AppState, getState, setState, subscribe } from './game-state.js';
 import { initFirebase, logOut, onAuthChange, signIn } from './firebase-init.js';
 import {
+  addSymbolToDeck,
+  advanceStage,
+  applyChoice,
+  applyEffects,
+  applyRewardEncounter,
+  buildInitialDeck,
+  calculateEndingOutcome,
+  createInactiveRunState,
+  createInitialRun,
+  loadNode,
+  normalizeRunState,
+  pushReturnNode,
+  rollEncounter,
+} from './story-engine.js';
+import {
+  buildCombatEnemy,
+  createCombatState,
+  executeCombatRound,
+} from './combat-engine.js';
+import {
   bindUIActions,
+  renderClassSelection,
+  renderCombatDefeat,
+  renderCombatRoundResult,
+  renderCombatScreen,
+  renderCombatVictory,
+  renderEndingView,
   renderLobby,
+  renderUpgradeShop,
   renderScreen,
+  renderStory,
   setAuthStatus,
   setBootStatus,
   showToast,
 } from './ui-renderer.js';
 
+const AUTO_SAVE_DELAY_MS = 300;
+const COMBAT_BLOCKED_REASON = 'combat_in_progress';
+const LOG_LIMIT = 500;
+const COMBAT_RESULT_SETTLE_DELAY_MS = 650;
+
 let authUnsubscribe = null;
 let activeAuthTaskId = 0;
 let retryAuthLoad = null;
+let activeStoryView = null;
+let classSelectLocked = false;
+let queuedAutoSaveTimer = null;
+let queuedAutoSaveResolvers = [];
+let queuedAutoSaveRun = null;
+let activeUpgradePurchaseId = null;
 
 function transitionTo(nextScreen) {
   setState({
@@ -26,6 +72,51 @@ function transitionTo(nextScreen) {
       screen: nextScreen,
     },
   });
+}
+
+function renderLobbyState() {
+  const state = getState();
+  renderLobby(state.user, state.currentRun, {
+    hasUpgradeShop: hasUpgradeShop(),
+  });
+}
+
+function formatRewardToast(encounter, rewardSummary, symbolsData) {
+  const parts = [encounter.name || '보상 획득'];
+
+  if (rewardSummary.gold > 0) {
+    parts.push(`골드 +${rewardSummary.gold}`);
+  }
+
+  if (rewardSummary.heal > 0) {
+    parts.push(`체력 +${rewardSummary.heal}`);
+  }
+
+  if (rewardSummary.addedSymbols.length > 0) {
+    const names = rewardSummary.addedSymbols.map(
+      (symbolId) => symbolsData?.[symbolId]?.name || symbolId,
+    );
+    parts.push(`획득 ${names.join(', ')}`);
+  }
+
+  return parts.join(' · ');
+}
+
+function formatCombatRewards(rewardSummary, symbolsData) {
+  const parts = [];
+
+  if (rewardSummary.gold > 0) {
+    parts.push(`골드 +${rewardSummary.gold}`);
+  }
+
+  if (rewardSummary.addedSymbols.length > 0) {
+    const names = rewardSummary.addedSymbols.map(
+      (symbolId) => symbolsData?.[symbolId]?.name || symbolId,
+    );
+    parts.push(`획득 ${names.join(', ')}`);
+  }
+
+  return parts.join(' · ');
 }
 
 function getLoginErrorMessage(error) {
@@ -60,6 +151,1057 @@ function getLoadErrorMessage(error) {
   return '유저 데이터 또는 게임 데이터를 불러오지 못했습니다. 다시 시도해 주세요.';
 }
 
+function getStoryNote(renderModel) {
+  if (renderModel.type === 'shop') {
+    return '아이템 구매 직후 자동 저장됩니다. 떠나기를 선택하면 원래 이야기로 복귀합니다.';
+  }
+
+  return '';
+}
+
+function buildClassSelectionModels(gameData) {
+  return Object.entries(gameData?.classes || {}).map(([classId, classInfo]) => {
+    const deck = buildInitialDeck(classId, gameData?.config?.bagCapacity ?? 20);
+    const symbolCounts = deck
+      .filter((symbolId) => symbolId !== 'empty')
+      .reduce((accumulator, symbolId) => {
+        accumulator[symbolId] = (accumulator[symbolId] || 0) + 1;
+        return accumulator;
+      }, {});
+
+    const weaponLabels = Object.entries(symbolCounts).map(([symbolId, count]) => {
+      const weaponName = gameData?.symbols?.[symbolId]?.name || symbolId;
+      return `${weaponName} x${count}`;
+    });
+
+    return {
+      classId,
+      name: classInfo.name || classId,
+      icon: classInfo.icon || '',
+      weapons: weaponLabels,
+      summary: `시작 덱 ${weaponLabels.join(' · ')}`,
+    };
+  });
+}
+
+function cloneJsonCompatible(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function wait(durationMs) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+}
+
+function getUpgradeDefinitions() {
+  const upgrades = getState().gameData?.config?.upgrades;
+  return upgrades && typeof upgrades === 'object' ? upgrades : {};
+}
+
+function hasUpgradeShop() {
+  return Object.keys(getUpgradeDefinitions()).length > 0;
+}
+
+function buildCombatContext(monsterId, combatState) {
+  if (!monsterId || !combatState) {
+    return null;
+  }
+
+  return {
+    monsterId,
+    currentEnemyHp: Math.max(0, Number(combatState.currentEnemyHp || 0)),
+    turnCount: Math.max(0, Number(combatState.turnCount || 0)),
+    logs: Array.isArray(combatState.logs) ? combatState.logs.slice(-LOG_LIMIT) : [],
+    lastSpinResult: combatState.lastSpinResult ? cloneJsonCompatible(combatState.lastSpinResult) : null,
+    resumeNodeId: combatState.resumeNodeId || null,
+    restoreNodeId: combatState.restoreNodeId || combatState.resumeNodeId || null,
+    victoryNodeId: combatState.victoryNodeId || null,
+    defeatNodeId: combatState.defeatNodeId || null,
+    sourceLabel: combatState.sourceLabel || null,
+  };
+}
+
+function renderUpgradeState() {
+  const state = getState();
+  renderUpgradeShop(
+    getUpgradeDefinitions(),
+    state.user?.upgrades,
+    state.user?.crystals,
+    {
+      purchasingId: activeUpgradePurchaseId,
+      isBusy: Boolean(activeUpgradePurchaseId),
+    },
+  );
+}
+
+function calculateCrystalReward(endingResult, config) {
+  const crystalRewardConfig = config?.crystalRewards || {};
+  const base = Math.max(0, Number(crystalRewardConfig.base || 0));
+  const perStage = Math.max(0, Number(crystalRewardConfig.perStage || 0));
+  const successBonus = Math.max(0, Number(crystalRewardConfig.successBonus || 0));
+  const rankableBonus = Math.max(0, Number(crystalRewardConfig.rankableBonus || 0));
+  const isSuccess = endingResult?.endingData?.type === 'success';
+  const isRankable = Boolean(endingResult?.isRankable);
+
+  return base
+    + (Math.max(1, Number(endingResult?.stageReached || 1)) * perStage)
+    + (isSuccess ? successBonus : 0)
+    + (isRankable ? rankableBonus : 0);
+}
+
+function createLogBuffer(existingLogs = [], events = []) {
+  return [...existingLogs, ...events.map((event) => event.message)].slice(-LOG_LIMIT);
+}
+
+function cancelQueuedAutoSave() {
+  if (queuedAutoSaveTimer) {
+    window.clearTimeout(queuedAutoSaveTimer);
+    queuedAutoSaveTimer = null;
+  }
+
+  queuedAutoSaveRun = null;
+  queuedAutoSaveResolvers.forEach((resolve) => resolve(false));
+  queuedAutoSaveResolvers = [];
+}
+
+async function persistRun(runSnapshot, options = {}) {
+  const { showSuccessToast = true, successMessage = '💾 저장 완료', errorMessage = '⚠️ 저장에 실패했습니다. 네트워크를 확인해 주세요.' } = options;
+  const user = getState().user;
+
+  if (!user?.uid) {
+    return false;
+  }
+
+  try {
+    await saveCurrentRun(user.uid, runSnapshot);
+    if (showSuccessToast) {
+      showToast(successMessage, 'success');
+    }
+    return true;
+  } catch (error) {
+    console.error('[app] Failed to save current run', error);
+    showToast(errorMessage, 'error');
+    return false;
+  }
+}
+
+async function flushQueuedAutoSave() {
+  if (!queuedAutoSaveRun) {
+    return false;
+  }
+
+  if (queuedAutoSaveTimer) {
+    window.clearTimeout(queuedAutoSaveTimer);
+    queuedAutoSaveTimer = null;
+  }
+
+  const runSnapshot = queuedAutoSaveRun;
+  queuedAutoSaveRun = null;
+  const resolvers = queuedAutoSaveResolvers;
+  queuedAutoSaveResolvers = [];
+  const result = await persistRun(runSnapshot);
+  resolvers.forEach((resolve) => resolve(result));
+  return result;
+}
+
+function queueAutoSave(reason, runOverride = null) {
+  const runSnapshot = normalizeRunState(runOverride ?? getState().currentRun);
+  queuedAutoSaveRun = runSnapshot;
+
+  return new Promise((resolve) => {
+    queuedAutoSaveResolvers.push(resolve);
+
+    if (queuedAutoSaveTimer) {
+      window.clearTimeout(queuedAutoSaveTimer);
+    }
+
+    queuedAutoSaveTimer = window.setTimeout(() => {
+      console.log('[app] Auto-save', reason);
+      void flushQueuedAutoSave();
+    }, AUTO_SAVE_DELAY_MS);
+  });
+}
+
+function clearTransientViews() {
+  activeStoryView = null;
+  setState({
+    combatState: null,
+    endingState: null,
+  });
+}
+
+function deactivateCurrentRun(overrides = {}) {
+  const nextRun = {
+    ...normalizeRunState(getState().currentRun),
+    ...createInactiveRunState(),
+    ...overrides,
+  };
+
+  clearTransientViews();
+  setState({ currentRun: nextRun });
+  return nextRun;
+}
+
+function failToLobby(message, error = null) {
+  if (error) {
+    console.error('[app] Story flow failed', error);
+  }
+
+  deactivateCurrentRun();
+  transitionTo(AppState.LOBBY);
+  renderLobbyState();
+  showToast(message, 'error');
+}
+
+function presentStoryNode(renderModel, currentRun, screen) {
+  const state = getState();
+  activeStoryView = {
+    screen,
+    renderModel,
+  };
+
+  setState({
+    currentRun,
+    combatState: null,
+    endingState: null,
+  });
+  transitionTo(screen);
+  renderStory(renderModel, {
+    currentRun,
+    gameData: state.gameData,
+    note: getStoryNote(renderModel),
+  });
+}
+
+function pickEncounterMonsterId(encounter) {
+  const monsters = Array.isArray(encounter?.monsters) ? encounter.monsters : [];
+
+  if (monsters.length === 0) {
+    return null;
+  }
+
+  const pickIndex = Math.floor(Math.random() * monsters.length);
+  return monsters[pickIndex];
+}
+
+function renderCurrentCombatScreen() {
+  const state = getState();
+
+  if (state.combatState && state.currentRun) {
+    renderCombatScreen(state.combatState, state.currentRun, state.gameData);
+  }
+}
+
+function renderCurrentEndingScreen() {
+  const state = getState();
+
+  if (state.endingState) {
+    renderEndingView(state.uiState.screen, state.endingState, state.user);
+  }
+}
+
+function handleUpgrade() {
+  if (!getState().user) {
+    showToast('로그인 후 이용할 수 있습니다.', 'info');
+    return;
+  }
+
+  if (!hasUpgradeShop()) {
+    showToast('강화 데이터가 아직 준비되지 않았습니다.', 'info');
+    return;
+  }
+
+  activeUpgradePurchaseId = null;
+  transitionTo(AppState.UPGRADE);
+  renderUpgradeState();
+}
+
+function handleUpgradeBack() {
+  if (activeUpgradePurchaseId) {
+    return;
+  }
+
+  transitionTo(AppState.LOBBY);
+  renderLobbyState();
+}
+
+async function handleUpgradePurchase(upgradeId) {
+  if (activeUpgradePurchaseId) {
+    return;
+  }
+
+  const state = getState();
+  const upgrade = getUpgradeDefinitions()[upgradeId];
+  const user = state.user;
+
+  if (!user?.uid || !upgrade) {
+    showToast('강화 데이터를 찾지 못했습니다.', 'error');
+    return;
+  }
+
+  const currentLevel = Math.max(0, Number(user.upgrades?.[upgradeId] || 0));
+  const maxLevel = Math.max(1, Number(upgrade.maxLevel || 1));
+  const cost = Math.max(0, Number(upgrade.cost || 0));
+
+  if (currentLevel >= maxLevel) {
+    showToast('이미 최대 강화 단계입니다.', 'info');
+    return;
+  }
+
+  if (Number(user.crystals || 0) < cost) {
+    showToast('결정이 부족합니다.', 'info');
+    return;
+  }
+
+  const previousUser = cloneJsonCompatible(user);
+  const nextUpgrades = {
+    ...(user.upgrades || {}),
+    [upgradeId]: currentLevel + 1,
+  };
+  const nextUser = {
+    ...user,
+    crystals: Number(user.crystals || 0) - cost,
+    upgrades: nextUpgrades,
+  };
+
+  activeUpgradePurchaseId = upgradeId;
+  setState({ user: nextUser });
+  renderUpgradeState();
+
+  try {
+    await saveUserMeta(user.uid, {
+      crystals: nextUser.crystals,
+      upgrades: nextUser.upgrades,
+    });
+    showToast(`${upgrade.name || upgradeId} 강화 완료`, 'success');
+  } catch (error) {
+    console.error('[app] Failed to save upgrade purchase', error);
+    setState({ user: previousUser });
+    showToast('강화 저장에 실패했습니다. 다시 시도해 주세요.', 'error');
+  } finally {
+    activeUpgradePurchaseId = null;
+    if (getState().uiState.screen === AppState.UPGRADE) {
+      renderUpgradeState();
+    } else {
+      renderLobbyState();
+    }
+  }
+}
+
+function startCombat(monsterId, baseRun, options = {}) {
+  const state = getState();
+  const monstersData = state.gameData?.monsters;
+
+  if (!monsterId || !monstersData?.[monsterId]) {
+    failToLobby('전투 몬스터 데이터를 찾지 못했습니다.');
+    return false;
+  }
+
+  const enemy = buildCombatEnemy(monstersData, monsterId);
+  const restoreNodeId = options.restoreNodeId || options.resumeNodeId || normalizeRunState(baseRun).currentNodeId;
+  const combatState = createCombatState(enemy, {
+    resumeNodeId: options.resumeNodeId || restoreNodeId,
+    restoreNodeId,
+    victoryNodeId: options.victoryNodeId || null,
+    defeatNodeId: options.defeatNodeId || 'node_ending_death',
+    sourceLabel: options.sourceLabel || enemy.name,
+  });
+  const combatRun = {
+    ...normalizeRunState(baseRun),
+    currentNodeId: restoreNodeId,
+    blockedReason: COMBAT_BLOCKED_REASON,
+    isActive: true,
+    combatContext: buildCombatContext(monsterId, combatState),
+  };
+
+  activeStoryView = null;
+  setState({
+    currentRun: combatRun,
+    combatState,
+    endingState: null,
+  });
+  transitionTo(AppState.COMBAT);
+  renderCombatScreen(combatState, combatRun, state.gameData);
+  void persistRun(combatRun, {
+    showSuccessToast: false,
+    errorMessage: '전투 상태 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+  });
+  return true;
+}
+
+function handleEndingNode(renderModel, currentRun) {
+  const state = getState();
+  const endingResult = calculateEndingOutcome(
+    renderModel.endingId,
+    state.gameData?.endings,
+    currentRun,
+  );
+
+  if (!endingResult.endingId) {
+    failToLobby('엔딩 데이터를 찾지 못했습니다.');
+    return false;
+  }
+
+  const nextRun = {
+    ...normalizeRunState(currentRun),
+    currentNodeId: renderModel.nodeId,
+    blockedReason: null,
+    isActive: true,
+  };
+  const nextEndingState = {
+    ...endingResult,
+    crystalsEarned: calculateCrystalReward(endingResult, state.gameData?.config),
+    isProcessing: false,
+    isFinalized: false,
+    rankingSubmitted: false,
+    rankings: [],
+  };
+
+  activeStoryView = null;
+  setState({
+    currentRun: nextRun,
+    combatState: null,
+    endingState: nextEndingState,
+  });
+  void persistRun(nextRun, {
+    showSuccessToast: false,
+    errorMessage: '엔딩 상태 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+  });
+  transitionTo(endingResult.endingData.type === 'death' ? AppState.ENDING_DEATH : AppState.ENDING_SUCCESS);
+  renderEndingView(
+    endingResult.endingData.type === 'death' ? AppState.ENDING_DEATH : AppState.ENDING_SUCCESS,
+    nextEndingState,
+    state.user,
+  );
+  return true;
+}
+
+function handleDirectCombatNode(renderModel, currentRun, options = {}) {
+  const restoreNodeId = options.restoreNodeId || options.previousNodeId || currentRun.currentNodeId;
+
+  return startCombat(renderModel.combatMonster, currentRun, {
+    sourceLabel: renderModel.title || renderModel.combatMonster,
+    victoryNodeId: renderModel.onWin,
+    defeatNodeId: renderModel.onLose || 'node_ending_death',
+    restoreNodeId,
+  });
+}
+
+function enterStoryNode(nodeId, baseRun, options = {}) {
+  const state = getState();
+  const storyData = state.gameData?.story;
+
+  if (!storyData) {
+    failToLobby('스토리 데이터가 준비되지 않았습니다.');
+    return false;
+  }
+
+  let nextRun = normalizeRunState(baseRun);
+  const previousNodeId = nextRun.currentNodeId;
+
+  if (options.returnNodeId) {
+    nextRun = pushReturnNode(nextRun, options.returnNodeId);
+  }
+
+  let initialRenderModel;
+  try {
+    initialRenderModel = loadNode(nodeId, storyData, nextRun);
+  } catch (error) {
+    failToLobby('스토리 노드를 불러오지 못했습니다. 로비로 돌아갑니다.', error);
+    return false;
+  }
+
+  if (!options.skipOnEnter) {
+    nextRun = applyEffects(initialRenderModel.onEnter, nextRun);
+  }
+  nextRun.currentNodeId = nodeId;
+  nextRun.blockedReason = null;
+
+  let renderModel;
+  try {
+    renderModel = loadNode(nodeId, storyData, nextRun);
+  } catch (error) {
+    failToLobby('스토리 노드를 다시 구성하지 못했습니다. 로비로 돌아갑니다.', error);
+    return false;
+  }
+
+  if (renderModel.type === 'encounter_trigger') {
+    return handleEncounterTrigger(renderModel, nextRun);
+  }
+
+  if (renderModel.type === 'combat') {
+    return handleDirectCombatNode(renderModel, nextRun, {
+      restoreNodeId: options.restoreNodeId || previousNodeId,
+      previousNodeId,
+    });
+  }
+
+  if (renderModel.type === 'ending') {
+    return handleEndingNode(renderModel, nextRun);
+  }
+
+  presentStoryNode(renderModel, nextRun, options.screen || AppState.STORY);
+  return true;
+}
+
+function handleEncounterTrigger(renderModel, currentRun) {
+  const state = getState();
+  const encounter = rollEncounter(renderModel.encounterPool, state.gameData?.encounters, currentRun);
+
+  if (!encounter) {
+    if (!renderModel.afterEncounter) {
+      failToLobby('진행 가능한 인카운트가 없고 다음 노드도 없습니다.');
+      return false;
+    }
+
+    return enterStoryNode(renderModel.afterEncounter, currentRun, { screen: AppState.STORY });
+  }
+
+  const progressedRun = advanceStage(currentRun, 1);
+
+  if (encounter.type === 'reward') {
+    const { updatedState, rewardSummary } = applyRewardEncounter(
+      encounter,
+      progressedRun,
+    );
+    showToast(formatRewardToast(encounter, rewardSummary, state.gameData?.symbols), 'success');
+
+    if (rewardSummary.skippedSymbols.length > 0) {
+      showToast('가방이 가득 차 일부 보상을 획득하지 못했습니다.', 'info');
+    }
+
+    if (!renderModel.afterEncounter) {
+      failToLobby('보상 인카운트 이후 이동할 노드가 없습니다.');
+      return false;
+    }
+
+    return enterStoryNode(renderModel.afterEncounter, updatedState, { screen: AppState.STORY });
+  }
+
+  if (encounter.type === 'combat') {
+    const monsterId = pickEncounterMonsterId(encounter);
+
+    if (!monsterId) {
+      failToLobby('전투 인카운트의 몬스터 목록이 비어 있습니다.');
+      return false;
+    }
+
+    return startCombat(monsterId, progressedRun, {
+      sourceLabel: encounter.name || monsterId,
+      resumeNodeId: renderModel.afterEncounter,
+      restoreNodeId: renderModel.afterEncounter,
+    });
+  }
+
+  if (encounter.type === 'event') {
+    const targetNode = state.gameData?.story?.[encounter.storyNodeId];
+
+    if (!targetNode) {
+      failToLobby('이벤트 인카운트가 올바른 스토리 노드를 가리키지 않습니다.');
+      return false;
+    }
+
+    const returnNodeId = targetNode.type === 'shop'
+      ? (renderModel.afterEncounter || currentRun.currentNodeId)
+      : null;
+
+    showToast(encounter.description || encounter.name || '이벤트가 발생했습니다.', 'info');
+    return enterStoryNode(encounter.storyNodeId, progressedRun, {
+      screen: AppState.STORY,
+      returnNodeId,
+    });
+  }
+
+  failToLobby('알 수 없는 인카운트 타입입니다.');
+  return false;
+}
+
+function resolveRestoreNodeId(run, storyData) {
+  const currentNodeId = run.currentNodeId;
+  const currentNode = storyData?.[currentNodeId];
+
+  if (!currentNodeId || !currentNode) {
+    return null;
+  }
+
+  if (currentNode.type !== 'combat') {
+    return currentNodeId;
+  }
+
+  const parentEntry = Object.entries(storyData || {}).find(([, candidate]) => (
+    Array.isArray(candidate?.choices)
+      && candidate.choices.some((choice) => choice.nextNodeId === currentNodeId)
+  ));
+
+  return parentEntry?.[0] || null;
+}
+
+function restoreCombatFromRun(currentRun) {
+  const state = getState();
+  const combatContext = currentRun?.combatContext;
+
+  if (!combatContext?.monsterId) {
+    return false;
+  }
+
+  try {
+    const enemy = buildCombatEnemy(state.gameData?.monsters, combatContext.monsterId);
+    const restoredCombatState = createCombatState(enemy, combatContext);
+    const restoredRun = {
+      ...normalizeRunState(currentRun),
+      blockedReason: COMBAT_BLOCKED_REASON,
+      combatContext: buildCombatContext(combatContext.monsterId, restoredCombatState),
+    };
+
+    activeStoryView = null;
+    setState({
+      currentRun: restoredRun,
+      combatState: restoredCombatState,
+      endingState: null,
+    });
+    transitionTo(AppState.COMBAT);
+    renderCombatScreen(restoredCombatState, restoredRun, state.gameData);
+    showToast('전투 중이던 런을 복구했습니다.', 'info');
+    return true;
+  } catch (error) {
+    console.error('[app] Failed to restore combat state', error);
+    return false;
+  }
+}
+
+function restoreActiveRun(currentRun) {
+  const state = getState();
+  const storyData = state.gameData?.story;
+  const restoredRun = normalizeRunState(currentRun);
+
+  if (
+    restoredRun.blockedReason === COMBAT_BLOCKED_REASON
+    && restoredRun.combatContext?.monsterId
+    && restoreCombatFromRun(restoredRun)
+  ) {
+    return true;
+  }
+
+  const restoreNodeId = resolveRestoreNodeId(restoredRun, storyData);
+
+  if (!restoreNodeId) {
+    failToLobby('복구할 런 위치를 찾지 못했습니다. 로비로 돌아갑니다.');
+    return false;
+  }
+
+  const safeRun = {
+    ...restoredRun,
+    currentNodeId: restoreNodeId,
+    blockedReason: null,
+    combatContext: null,
+  };
+
+  setState({ currentRun: safeRun });
+  return enterStoryNode(restoreNodeId, safeRun, {
+    screen: AppState.STORY,
+    skipOnEnter: true,
+  });
+}
+
+function handleStartRun() {
+  const state = getState();
+  const currentRun = normalizeRunState(state.currentRun);
+
+  if (!state.gameData) {
+    showToast('게임 데이터가 아직 준비되지 않았습니다.', 'error');
+    return;
+  }
+
+  if (currentRun.isActive) {
+    showToast('이전 런이 감지되었습니다. 이어서 진행합니다.', 'info');
+    restoreActiveRun(currentRun);
+    return;
+  }
+
+  classSelectLocked = false;
+  renderClassSelection(buildClassSelectionModels(state.gameData), { locked: false });
+  transitionTo(AppState.CLASS_SELECT);
+}
+
+function handleClassSelect(classId) {
+  if (classSelectLocked) {
+    return;
+  }
+
+  const state = getState();
+  if (!state.gameData?.classes?.[classId]) {
+    showToast('선택한 직업 데이터를 찾지 못했습니다.', 'error');
+    return;
+  }
+
+  classSelectLocked = true;
+  renderClassSelection(buildClassSelectionModels(state.gameData), { locked: true });
+
+  const nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades);
+  setState({ currentRun: nextRun });
+  if (enterStoryNode('node_prologue', nextRun, { screen: AppState.PROLOGUE })) {
+    void queueAutoSave('run-start', getState().currentRun);
+  }
+}
+
+function handleStoryChoice(choiceIndex) {
+  const state = getState();
+  const currentRun = normalizeRunState(state.currentRun);
+  const renderModel = activeStoryView?.renderModel;
+  const choice = renderModel?.choices?.[choiceIndex];
+
+  if (!choice) {
+    showToast('선택지를 처리하지 못했습니다.', 'error');
+    return;
+  }
+
+  let nextNodeId;
+  let updatedState;
+
+  try {
+    ({ nextNodeId, updatedState } = applyChoice(choice, currentRun));
+  } catch (error) {
+    failToLobby('선택지 적용에 실패했습니다. 로비로 돌아갑니다.', error);
+    return;
+  }
+
+  if (!nextNodeId) {
+    failToLobby('다음 노드를 찾지 못했습니다.');
+    return;
+  }
+
+  const targetNode = state.gameData?.story?.[nextNodeId];
+  if (!targetNode) {
+    failToLobby('대상 스토리 노드가 존재하지 않습니다.');
+    return;
+  }
+
+  const entered = enterStoryNode(nextNodeId, updatedState, {
+    screen: AppState.STORY,
+    returnNodeId: targetNode.type === 'shop' ? currentRun.currentNodeId : null,
+    restoreNodeId: currentRun.currentNodeId,
+  });
+
+  if (entered) {
+    void queueAutoSave('story-choice', getState().currentRun);
+  }
+}
+
+function handleShopPurchase(symbolId) {
+  const state = getState();
+  const currentRun = normalizeRunState(state.currentRun);
+  const renderModel = activeStoryView?.renderModel;
+  const shopItem = renderModel?.shopItems?.find((item) => item.symbolId === symbolId);
+  const symbolData = state.gameData?.symbols?.[symbolId];
+
+  if (!shopItem || renderModel?.type !== 'shop') {
+    showToast('구매 가능한 상점 아이템이 아닙니다.', 'error');
+    return;
+  }
+
+  if (currentRun.gold < Number(shopItem.cost || 0)) {
+    showToast('골드가 부족합니다.', 'info');
+    return;
+  }
+
+  const spendGoldRun = {
+    ...currentRun,
+    gold: currentRun.gold - Number(shopItem.cost || 0),
+  };
+
+  const addResult = addSymbolToDeck(spendGoldRun, symbolId);
+  if (!addResult.added) {
+    showToast('가방이 가득 찼습니다.', 'info');
+    return;
+  }
+
+  const refreshedRun = addResult.updatedState;
+  let refreshedRenderModel;
+
+  try {
+    refreshedRenderModel = loadNode(renderModel.nodeId, state.gameData?.story, refreshedRun);
+  } catch (error) {
+    failToLobby('상점 상태를 갱신하지 못했습니다. 로비로 돌아갑니다.', error);
+    return;
+  }
+
+  activeStoryView = {
+    screen: AppState.STORY,
+    renderModel: refreshedRenderModel,
+  };
+
+  setState({ currentRun: refreshedRun });
+  renderStory(refreshedRenderModel, {
+    currentRun: refreshedRun,
+    gameData: state.gameData,
+    note: getStoryNote(refreshedRenderModel),
+  });
+  showToast(`${symbolData?.name || symbolId}을(를) 구매했습니다.`, 'success');
+  void queueAutoSave('shop-purchase', refreshedRun);
+}
+
+async function handleCombatSpin() {
+  const state = getState();
+  const combatState = state.combatState;
+  const currentRun = normalizeRunState(state.currentRun);
+
+  if (!combatState || combatState.isResolving) {
+    return;
+  }
+
+  const resolvingState = {
+    ...combatState,
+    isResolving: true,
+  };
+
+  setState({ combatState: resolvingState });
+  renderCombatScreen(resolvingState, currentRun, state.gameData);
+
+  const roundResult = executeCombatRound({
+    player: currentRun,
+    deck: currentRun.deck,
+    enemy: combatState.enemy,
+    currentEnemyHp: combatState.currentEnemyHp,
+    config: state.gameData?.config,
+    symbolsData: state.gameData?.symbols,
+  });
+  await renderCombatRoundResult(roundResult, resolvingState, state.gameData?.symbols);
+  const nextRun = {
+    ...normalizeRunState(roundResult.playerState),
+    currentNodeId: currentRun.currentNodeId,
+    blockedReason: currentRun.blockedReason,
+  };
+  const nextCombatState = {
+    ...combatState,
+    currentEnemyHp: roundResult.currentEnemyHp,
+    turnCount: combatState.turnCount + 1,
+    lastSpinResult: roundResult.spinDetail,
+    logs: createLogBuffer(combatState.logs, roundResult.events),
+    isResolving: false,
+  };
+  nextRun.combatContext = buildCombatContext(combatState.enemy?.id, nextCombatState);
+
+  setState({
+    currentRun: nextRun,
+    combatState: nextCombatState,
+  });
+  renderCurrentCombatScreen();
+
+  if (roundResult.result === 'ongoing') {
+    await persistRun(nextRun, {
+      showSuccessToast: false,
+      errorMessage: '전투 진행 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+    });
+    return;
+  }
+
+  const rewardSummary = roundResult.rewardSummary || {
+    gold: 0,
+    addedSymbols: [],
+    skippedSymbols: [],
+    exp: 0,
+  };
+  const destinationNodeId = roundResult.result === 'win'
+    ? (combatState.victoryNodeId || combatState.resumeNodeId)
+    : (combatState.defeatNodeId || 'node_ending_death');
+  const completedRun = {
+    ...normalizeRunState(nextRun),
+    currentNodeId: destinationNodeId || combatState.resumeNodeId || nextRun.currentNodeId,
+    blockedReason: null,
+    isActive: true,
+    combatContext: null,
+  };
+
+  if (rewardSummary.skippedSymbols.length > 0) {
+    showToast('가방이 가득 차 일부 전리품을 획득하지 못했습니다.', 'info');
+  }
+
+  if (roundResult.result === 'win') {
+    const rewardText = formatCombatRewards(rewardSummary, state.gameData?.symbols);
+    if (rewardText) {
+      showToast(`승리 보상 · ${rewardText}`, 'success');
+    } else {
+      showToast('전투 승리', 'success');
+    }
+    renderCombatVictory(rewardSummary, state.gameData?.symbols);
+  } else {
+    showToast('전투에서 쓰러졌습니다.', 'error');
+    renderCombatDefeat(nextRun);
+  }
+
+  await wait(COMBAT_RESULT_SETTLE_DELAY_MS);
+  setState({
+    currentRun: completedRun,
+    combatState: null,
+  });
+  cancelQueuedAutoSave();
+  await persistRun(completedRun, {
+    showSuccessToast: false,
+    errorMessage: '전투 종료 상태 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+  });
+
+  if (!destinationNodeId) {
+    failToLobby('전투 이후 이동할 노드가 없습니다.');
+    return;
+  }
+
+  enterStoryNode(destinationNodeId, completedRun, {
+    screen: roundResult.result === 'win' ? AppState.STORY : AppState.SURVIVAL_CHECK,
+  });
+}
+
+async function finalizeEnding(options = {}) {
+  const { submitRank = false } = options;
+  const state = getState();
+  const endingState = state.endingState;
+
+  if (!endingState || endingState.isProcessing) {
+    return;
+  }
+
+  cancelQueuedAutoSave();
+
+  const processingState = {
+    ...endingState,
+    isProcessing: true,
+  };
+
+  setState({ endingState: processingState });
+  renderCurrentEndingScreen();
+
+  const finalizedRun = {
+    ...normalizeRunState(state.currentRun),
+    isActive: false,
+    blockedReason: null,
+    encounterHistory: [],
+  };
+  const updatedUser = {
+    ...state.user,
+    totalGoldEarned: Number(state.user?.totalGoldEarned || 0) + Number(endingState.payout || 0),
+    highestStage: Math.max(Number(state.user?.highestStage || 0), Number(endingState.stageReached || 0)),
+    crystals: Number(state.user?.crystals || 0) + Number(endingState.crystalsEarned || 0),
+  };
+
+  const runSaved = await persistRun(finalizedRun, {
+    showSuccessToast: false,
+    errorMessage: '메타 저장 전에 런 종료 상태를 저장하지 못했습니다. 다시 시도해 주세요.',
+  });
+
+  if (!runSaved) {
+    setState({
+      endingState: {
+        ...processingState,
+        isProcessing: false,
+      },
+    });
+    renderCurrentEndingScreen();
+    return;
+  }
+
+  try {
+    await saveUserMeta(updatedUser.uid, {
+      totalGoldEarned: updatedUser.totalGoldEarned,
+      highestStage: updatedUser.highestStage,
+      crystals: updatedUser.crystals,
+    });
+  } catch (error) {
+    console.error('[app] Failed to save user meta', error);
+    showToast('메타 저장에 실패했습니다. 다시 시도해 주세요.', 'error');
+    setState({
+      endingState: {
+        ...processingState,
+        isProcessing: false,
+      },
+      currentRun: finalizedRun,
+    });
+    renderCurrentEndingScreen();
+    return;
+  }
+
+  const nextEndingState = {
+    ...processingState,
+    isProcessing: false,
+    isFinalized: true,
+  };
+
+  setState({
+    user: updatedUser,
+    currentRun: finalizedRun,
+    endingState: nextEndingState,
+  });
+
+  if (submitRank && endingState.isRankable) {
+    try {
+      await submitRanking({
+        uid: updatedUser.uid,
+        displayName: updatedUser.displayName || '모험가',
+        endingId: endingState.endingId,
+        stage: endingState.stageReached,
+        payout: endingState.payout,
+      });
+      nextEndingState.rankingSubmitted = true;
+    } catch (error) {
+      console.error('[app] Failed to submit ranking', error);
+      showToast('랭킹 등록에 실패했습니다. 보상은 정상 지급됩니다.', 'error');
+      nextEndingState.rankingSubmitted = false;
+    }
+
+    if (nextEndingState.rankingSubmitted) {
+      try {
+        nextEndingState.rankings = await loadTopRankings();
+      } catch (error) {
+        console.error('[app] Failed to load rankings', error);
+        showToast('랭킹 목록을 불러오지 못했습니다.', 'error');
+        nextEndingState.rankings = [];
+      }
+
+      setState({ endingState: nextEndingState });
+      transitionTo(AppState.RANKING);
+      renderEndingView(AppState.RANKING, nextEndingState, updatedUser);
+      showToast('원정 결과가 정산되었습니다.', 'success');
+      return;
+    }
+  }
+
+  setState({ endingState: nextEndingState });
+  transitionTo(AppState.PAYOUT);
+  renderEndingView(AppState.PAYOUT, nextEndingState, updatedUser);
+  showToast('원정 결과가 정산되었습니다.', 'success');
+}
+
+async function handleEndingPrimary() {
+  const state = getState();
+
+  if (state.uiState.screen === AppState.ENDING_DEATH || state.uiState.screen === AppState.ENDING_SUCCESS) {
+    await finalizeEnding({ submitRank: Boolean(state.endingState?.isRankable) });
+    return;
+  }
+
+  if (state.uiState.screen === AppState.RANKING) {
+    transitionTo(AppState.PAYOUT);
+    renderEndingView(AppState.PAYOUT, state.endingState, state.user);
+    return;
+  }
+
+  if (state.uiState.screen === AppState.PAYOUT) {
+    setState({
+      endingState: null,
+      combatState: null,
+    });
+    transitionTo(AppState.LOBBY);
+    renderLobbyState();
+  }
+}
+
+async function handleEndingSecondary() {
+  const state = getState();
+
+  if (state.uiState.screen === AppState.ENDING_SUCCESS && state.endingState?.isRankable) {
+    await finalizeEnding({ submitRank: false });
+  }
+}
+
 async function restoreAuthenticatedSession(authUser) {
   const taskId = ++activeAuthTaskId;
   retryAuthLoad = () => {
@@ -91,16 +1233,33 @@ async function restoreAuthenticatedSession(authUser) {
     }
 
     retryAuthLoad = null;
+    const restoredRun = normalizeRunState(user.currentRun);
     setState({
       gameData,
       user,
-      currentRun: user.currentRun || { isActive: false },
+      currentRun: restoredRun,
+      combatState: null,
+      endingState: null,
       uiState: {
         authBusy: false,
         authMessage: '로비 진입 완료',
       },
     });
-    renderLobby(user);
+
+    if (restoredRun.isActive) {
+      showToast('이전 런이 감지되었습니다. 이어서 진행합니다.', 'info');
+      if (!restoreActiveRun(restoredRun)) {
+        transitionTo(AppState.LOBBY);
+        renderLobby(user, getState().currentRun, {
+          hasUpgradeShop: hasUpgradeShop(),
+        });
+      }
+      return;
+    }
+
+    renderLobby(user, restoredRun, {
+      hasUpgradeShop: hasUpgradeShop(),
+    });
     transitionTo(AppState.LOBBY);
     showToast('로비에 입장했습니다.', 'success');
   } catch (error) {
@@ -114,6 +1273,8 @@ async function restoreAuthenticatedSession(authUser) {
       user: null,
       currentRun: null,
       gameData: null,
+      combatState: null,
+      endingState: null,
       uiState: {
         authBusy: false,
         authMessage: getLoadErrorMessage(error),
@@ -166,6 +1327,8 @@ async function handleGoogleLogin() {
 }
 
 async function handleLogout() {
+  cancelQueuedAutoSave();
+
   try {
     await logOut();
     showToast('로그아웃했습니다.', 'info');
@@ -178,6 +1341,10 @@ async function handleLogout() {
 function handleSignedOut() {
   retryAuthLoad = null;
   activeAuthTaskId += 1;
+  classSelectLocked = false;
+  activeUpgradePurchaseId = null;
+  cancelQueuedAutoSave();
+  clearTransientViews();
   setState({
     user: null,
     currentRun: null,
@@ -210,16 +1377,37 @@ async function boot() {
       void handleLogout();
     },
     onStartRun: () => {
-      showToast('런 시작 연결은 Phase 3에서 구현됩니다.', 'info');
+      handleStartRun();
     },
     onUpgrade: () => {
-      showToast('강화 화면은 아직 비활성화 상태입니다.', 'info');
+      handleUpgrade();
+    },
+    onUpgradeBack: () => {
+      handleUpgradeBack();
+    },
+    onUpgradePurchase: (upgradeId) => {
+      void handleUpgradePurchase(upgradeId);
     },
     onBootRetry: () => {
       window.location.reload();
     },
-    onReturnLobby: () => {
-      transitionTo(AppState.LOBBY);
+    onClassSelect: (classId) => {
+      handleClassSelect(classId);
+    },
+    onStoryChoice: (choiceIndex) => {
+      handleStoryChoice(choiceIndex);
+    },
+    onShopPurchase: (symbolId) => {
+      handleShopPurchase(symbolId);
+    },
+    onCombatSpin: () => {
+      void handleCombatSpin();
+    },
+    onEndingPrimary: () => {
+      void handleEndingPrimary();
+    },
+    onEndingSecondary: () => {
+      void handleEndingSecondary();
     },
   });
 
@@ -261,7 +1449,29 @@ subscribe((state) => {
   renderScreen(state.uiState.screen);
 
   if (state.uiState.screen === AppState.LOBBY && state.user) {
-    renderLobby(state.user);
+    renderLobby(state.user, state.currentRun, {
+      hasUpgradeShop: hasUpgradeShop(),
+    });
+  }
+
+  if (state.uiState.screen === AppState.UPGRADE && state.user) {
+    renderUpgradeState();
+  }
+
+  if (state.uiState.screen === AppState.COMBAT && state.currentRun && state.combatState) {
+    renderCurrentCombatScreen();
+  }
+
+  if (
+    [
+      AppState.ENDING_DEATH,
+      AppState.ENDING_SUCCESS,
+      AppState.RANKING,
+      AppState.PAYOUT,
+    ].includes(state.uiState.screen)
+    && state.endingState
+  ) {
+    renderCurrentEndingScreen();
   }
 });
 

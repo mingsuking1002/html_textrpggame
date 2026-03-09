@@ -31,6 +31,8 @@ const state = {
   user: null,
   currentRun: null,
   gameData: null,
+  combatState: null,
+  endingState: null,
 };
 
 const listeners = [];
@@ -54,6 +56,14 @@ export function setState(partial) {
 
   if (Object.prototype.hasOwnProperty.call(partial, 'gameData')) {
     state.gameData = partial.gameData;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(partial, 'combatState')) {
+    state.combatState = partial.combatState;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(partial, 'endingState')) {
+    state.endingState = partial.endingState;
   }
 
   listeners.forEach((listener) => listener(state));

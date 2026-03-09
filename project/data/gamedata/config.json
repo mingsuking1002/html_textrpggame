@@ -1,7 +1,45 @@
 {
-    "startHp": 80,
-    "startGold": 100,
-    "bagCapacity": 20,
-    "rerollCost": 25,
-    "armorConstant": 15
+  "startHp": 80,
+  "startGold": 100,
+  "bagCapacity": 20,
+  "rerollCost": 25,
+  "armorConstant": 15,
+  "crystalRewards": {
+    "base": 6,
+    "perStage": 2,
+    "successBonus": 8,
+    "rankableBonus": 4
+  },
+  "upgrades": {
+    "upgrade_hp": {
+      "name": "생명력 강화",
+      "description": "시작 HP가 증가합니다.",
+      "cost": 50,
+      "maxLevel": 3,
+      "effect": {
+        "bonusHp": 20
+      },
+      "icon": "/assets/images/ui/upgrade_hp.webp"
+    },
+    "upgrade_gold": {
+      "name": "보물 사냥꾼",
+      "description": "시작 골드가 증가합니다.",
+      "cost": 30,
+      "maxLevel": 3,
+      "effect": {
+        "bonusGold": 30
+      },
+      "icon": "/assets/images/ui/upgrade_gold.webp"
+    },
+    "upgrade_bag": {
+      "name": "큰 가방",
+      "description": "가방 용량이 늘어납니다.",
+      "cost": 80,
+      "maxLevel": 2,
+      "effect": {
+        "bonusBagCapacity": 5
+      },
+      "icon": "/assets/images/ui/upgrade_bag.webp"
+    }
+  }
 }

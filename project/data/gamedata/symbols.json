@@ -1,58 +1,122 @@
 {
-    "sword": {
-        "name": "낡은 검",
-        "type": "attack",
-        "value": 4,
-        "rarity": 1,
-        "classTag": "sword",
-        "icon": "/assets/images/items/sword.webp"
-    },
-    "shield": {
-        "name": "나무 방패",
-        "type": "defense",
-        "value": 3,
-        "rarity": 1,
-        "classTag": "shield",
-        "icon": "/assets/images/items/shield.webp"
-    },
-    "potion": {
-        "name": "포션",
-        "type": "heal",
-        "value": 2,
-        "rarity": 2,
-        "classTag": "potion",
-        "icon": "/assets/images/items/potion.webp"
-    },
-    "mace": {
-        "name": "철퇴",
-        "type": "attack",
-        "value": 6,
-        "rarity": 2,
-        "classTag": "mace",
-        "icon": "/assets/images/items/mace.webp"
-    },
-    "hammer": {
-        "name": "전쟁 망치",
-        "type": "attack",
-        "value": 8,
-        "rarity": 3,
-        "classTag": "hammer",
-        "icon": "/assets/images/items/hammer.webp"
-    },
-    "bow": {
-        "name": "사냥꾼의 활",
-        "type": "attack",
-        "value": 5,
-        "rarity": 1,
-        "classTag": "bow",
-        "icon": "/assets/images/items/bow.webp"
-    },
-    "crossbow": {
-        "name": "석궁",
-        "type": "attack",
-        "value": 7,
-        "rarity": 2,
-        "classTag": "crossbow",
-        "icon": "/assets/images/items/crossbow.webp"
-    }
+  "sword": {
+    "name": "낡은 검",
+    "type": "attack",
+    "value": 4,
+    "rarity": 1,
+    "classTag": "sword",
+    "icon": "/assets/images/items/sword.webp"
+  },
+  "shield": {
+    "name": "나무 방패",
+    "type": "defense",
+    "value": 3,
+    "rarity": 1,
+    "classTag": "shield",
+    "icon": "/assets/images/items/shield.webp"
+  },
+  "potion": {
+    "name": "포션",
+    "type": "heal",
+    "value": 2,
+    "rarity": 2,
+    "classTag": "potion",
+    "icon": "/assets/images/items/potion.webp"
+  },
+  "mace": {
+    "name": "철퇴",
+    "type": "attack",
+    "value": 6,
+    "rarity": 2,
+    "classTag": "mace",
+    "icon": "/assets/images/items/mace.webp"
+  },
+  "hammer": {
+    "name": "전쟁 망치",
+    "type": "attack",
+    "value": 8,
+    "rarity": 3,
+    "classTag": "hammer",
+    "icon": "/assets/images/items/hammer.webp"
+  },
+  "bow": {
+    "name": "사냥꾼의 활",
+    "type": "attack",
+    "value": 5,
+    "rarity": 1,
+    "classTag": "bow",
+    "icon": "/assets/images/items/bow.webp"
+  },
+  "crossbow": {
+    "name": "석궁",
+    "type": "attack",
+    "value": 7,
+    "rarity": 2,
+    "classTag": "crossbow",
+    "icon": "/assets/images/items/crossbow.webp"
+  },
+  "dagger": {
+    "name": "단검",
+    "type": "attack",
+    "value": 3,
+    "rarity": 1,
+    "classTag": "dagger",
+    "icon": "/assets/images/items/dagger.webp"
+  },
+  "spear": {
+    "name": "창",
+    "type": "attack",
+    "value": 6,
+    "rarity": 2,
+    "classTag": "spear",
+    "icon": "/assets/images/items/spear.webp"
+  },
+  "staff": {
+    "name": "마법 지팡이",
+    "type": "attack",
+    "value": 7,
+    "rarity": 2,
+    "classTag": "staff",
+    "icon": "/assets/images/items/staff.webp"
+  },
+  "helmet": {
+    "name": "철 투구",
+    "type": "defense",
+    "value": 4,
+    "rarity": 2,
+    "classTag": "helmet",
+    "icon": "/assets/images/items/helmet.webp"
+  },
+  "armor": {
+    "name": "가죽 갑옷",
+    "type": "defense",
+    "value": 6,
+    "rarity": 3,
+    "classTag": "armor",
+    "icon": "/assets/images/items/armor.webp"
+  },
+  "herb": {
+    "name": "약초",
+    "type": "heal",
+    "value": 3,
+    "rarity": 1,
+    "classTag": "herb",
+    "icon": "/assets/images/items/herb.webp"
+  },
+  "elixir": {
+    "name": "엘릭서",
+    "type": "heal",
+    "value": 8,
+    "rarity": 3,
+    "classTag": "elixir",
+    "icon": "/assets/images/items/elixir.webp"
+  },
+  "gold_coin": {
+    "name": "금화",
+    "type": "gold",
+    "value": 15,
+    "rarity": 2,
+    "classTag": "gold",
+    "icon": "/assets/images/items/gold_coin.webp"
+  }
 }

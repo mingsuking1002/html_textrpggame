@@ -1,102 +1,197 @@
 {
-    "enc_forest_ambush": {
-        "name": "숲속 매복",
-        "type": "combat",
-        "description": "수풀 속에서 적이 나타났다!",
-        "monsters": [
-            "slime",
-            "goblin"
-        ],
-        "weight": 10,
-        "conditions": {
-            "minStage": 1,
-            "maxStage": 3,
-            "requiredFlags": []
-        }
-    },
-    "enc_skeleton_tomb": {
-        "name": "해골 무덤",
-        "type": "combat",
-        "description": "무덤에서 해골 전사가 깨어났다!",
-        "monsters": [
-            "skeleton"
-        ],
-        "weight": 8,
-        "conditions": {
-            "minStage": 2,
-            "maxStage": 5,
-            "requiredFlags": []
-        }
-    },
-    "enc_orc_camp": {
-        "name": "오크 야영지",
-        "type": "combat",
-        "description": "오크들이 야영지를 지키고 있다!",
-        "monsters": [
-            "orc_warrior"
-        ],
-        "weight": 5,
-        "conditions": {
-            "minStage": 3,
-            "maxStage": 99,
-            "requiredFlags": []
-        }
-    },
-    "enc_merchant": {
-        "name": "떠돌이 상인",
-        "type": "event",
-        "description": "떠돌이 상인이 길을 막고 있다.",
-        "storyNodeId": "node_merchant",
-        "weight": 5,
-        "conditions": {
-            "minStage": 1,
-            "maxStage": 99,
-            "requiredFlags": []
-        }
-    },
-    "enc_treasure": {
-        "name": "보물 상자",
-        "type": "reward",
-        "description": "길가에 낡은 상자가 있다.",
-        "rewards": {
-            "gold": [
-                10,
-                30
-            ],
-            "symbols": [
-                {
-                    "symbolId": "potion",
-                    "chance": 0.5
-                }
-            ]
-        },
-        "weight": 3,
-        "conditions": {
-            "minStage": 1,
-            "maxStage": 99,
-            "requiredFlags": []
-        }
-    },
-    "enc_healing_spring": {
-        "name": "치유의 샘",
-        "type": "reward",
-        "description": "맑은 샘물이 빛나고 있다. 체력이 회복될 것 같다.",
-        "rewards": {
-            "heal": [
-                10,
-                20
-            ],
-            "gold": [
-                0,
-                0
-            ],
-            "symbols": []
-        },
-        "weight": 4,
-        "conditions": {
-            "minStage": 1,
-            "maxStage": 99,
-            "requiredFlags": []
-        }
+  "enc_forest_ambush": {
+    "name": "숲속 매복",
+    "type": "combat",
+    "description": "수풀 속에서 적이 나타났다!",
+    "monsters": [
+      "slime",
+      "goblin"
+    ],
+    "weight": 10,
+    "conditions": {
+      "minStage": 1,
+      "maxStage": 3,
+      "requiredFlags": []
     }
+  },
+  "enc_skeleton_tomb": {
+    "name": "해골 무덤",
+    "type": "combat",
+    "description": "무덤에서 해골 전사가 깨어났다!",
+    "monsters": [
+      "skeleton"
+    ],
+    "weight": 8,
+    "conditions": {
+      "minStage": 2,
+      "maxStage": 5,
+      "requiredFlags": []
+    }
+  },
+  "enc_orc_camp": {
+    "name": "오크 야영지",
+    "type": "combat",
+    "description": "오크들이 야영지를 지키고 있다!",
+    "monsters": [
+      "orc_warrior"
+    ],
+    "weight": 5,
+    "conditions": {
+      "minStage": 3,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  },
+  "enc_merchant": {
+    "name": "떠돌이 상인",
+    "type": "event",
+    "description": "떠돌이 상인이 길을 막고 있다.",
+    "storyNodeId": "node_merchant",
+    "weight": 5,
+    "conditions": {
+      "minStage": 1,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  },
+  "enc_treasure": {
+    "name": "보물 상자",
+    "type": "reward",
+    "description": "길가에 낡은 상자가 있다.",
+    "rewards": {
+      "gold": [
+        10,
+        30
+      ],
+      "symbols": [
+        {
+          "symbolId": "potion",
+          "chance": 0.5
+        }
+      ]
+    },
+    "weight": 3,
+    "conditions": {
+      "minStage": 1,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  },
+  "enc_healing_spring": {
+    "name": "치유의 샘",
+    "type": "reward",
+    "description": "맑은 샘물이 빛나고 있다. 체력이 회복될 것 같다.",
+    "rewards": {
+      "heal": [
+        10,
+        20
+      ],
+      "gold": [
+        0,
+        0
+      ],
+      "symbols": []
+    },
+    "weight": 4,
+    "conditions": {
+      "minStage": 1,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  },
+  "enc_wolf_pack": {
+    "name": "늑대 무리",
+    "type": "combat",
+    "description": "굶주린 늑대들이 포위해 온다.",
+    "monsters": [
+      "wolf"
+    ],
+    "weight": 8,
+    "conditions": {
+      "minStage": 1,
+      "maxStage": 3,
+      "requiredFlags": []
+    }
+  },
+  "enc_bandit_road": {
+    "name": "산적 습격",
+    "type": "combat",
+    "description": "숲길을 장악한 산적들이 통행세를 요구한다.",
+    "monsters": [
+      "bandit"
+    ],
+    "weight": 7,
+    "conditions": {
+      "minStage": 2,
+      "maxStage": 4,
+      "requiredFlags": []
+    }
+  },
+  "enc_dark_mage": {
+    "name": "어둠의 마법사",
+    "type": "combat",
+    "description": "금단의 주문을 읊는 마법사가 길을 막아선다.",
+    "monsters": [
+      "dark_mage"
+    ],
+    "weight": 5,
+    "conditions": {
+      "minStage": 3,
+      "maxStage": 5,
+      "requiredFlags": []
+    }
+  },
+  "enc_golem_ruins": {
+    "name": "골렘 유적",
+    "type": "combat",
+    "description": "무너진 석상 속에서 골렘이 깨어난다.",
+    "monsters": [
+      "golem"
+    ],
+    "weight": 4,
+    "conditions": {
+      "minStage": 4,
+      "maxStage": 6,
+      "requiredFlags": []
+    }
+  },
+  "enc_mystic_chest": {
+    "name": "신비한 상자",
+    "type": "reward",
+    "description": "푸른 빛을 내는 상자 안에 약초와 엘릭서가 섞여 있다.",
+    "rewards": {
+      "gold": [
+        15,
+        40
+      ],
+      "symbols": [
+        {
+          "symbolId": "herb",
+          "chance": 0.5
+        },
+        {
+          "symbolId": "elixir",
+          "chance": 0.2
+        }
+      ]
+    },
+    "weight": 4,
+    "conditions": {
+      "minStage": 2,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  },
+  "enc_wandering_smith": {
+    "name": "떠돌이 대장장이",
+    "type": "event",
+    "description": "망치를 든 대장장이가 장비를 손질해 줄 수 있다고 한다.",
+    "storyNodeId": "node_smithy",
+    "weight": 4,
+    "conditions": {
+      "minStage": 2,
+      "maxStage": 99,
+      "requiredFlags": []
+    }
+  }
 }

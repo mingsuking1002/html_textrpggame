@@ -65,6 +65,14 @@ import {
   stopBGM,
 } from './sound-manager.js';
 
+if (typeof window !== 'undefined') {
+  window.__PH_BOOT_DIAG__ = {
+    ...(window.__PH_BOOT_DIAG__ || {}),
+    appModuleLoaded: true,
+    appModuleLoadedAt: Date.now(),
+  };
+}
+
 const AUTO_SAVE_DELAY_MS = 300;
 const COMBAT_BLOCKED_REASON = 'combat_in_progress';
 const LOG_LIMIT = 500;
@@ -72,6 +80,8 @@ const COMBAT_RESULT_SETTLE_DELAY_MS = 650;
 const LOCAL_BACKUP_PREFIX = 'ph:current-run:';
 const PERF_LOG_PREFIX = '[perf]';
 const PERF_HISTORY_LIMIT = 10;
+const NICKNAME_MIN_LENGTH = 2;
+const NICKNAME_MAX_LENGTH = 16;
 
 let authUnsubscribe = null;
 let activeAuthTaskId = 0;
@@ -82,6 +92,7 @@ let queuedAutoSaveTimer = null;
 let queuedAutoSaveResolvers = [];
 let queuedAutoSaveRun = null;
 let activeUpgradePurchaseId = null;
+let activeNicknameSave = false;
 
 function getPerfNow() {
   if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
@@ -344,10 +355,17 @@ function transitionTo(nextScreen) {
   void playBGM(getBgmTrackForScreen(nextScreen));
 }
 
+function normalizeNickname(value) {
+  return Array.from(String(value || '').trim().replace(/\s+/g, ' '))
+    .slice(0, NICKNAME_MAX_LENGTH)
+    .join('');
+}
+
 function renderLobbyState() {
   const state = getState();
   renderLobby(state.user, state.currentRun, {
     hasUpgradeShop: hasUpgradeShop(),
+    isNicknameSaving: activeNicknameSave,
   });
 }
 
@@ -674,6 +692,81 @@ function renderCurrentEndingScreen() {
 
   if (state.endingState) {
     renderEndingView(state.uiState.screen, state.endingState, state.user);
+  }
+}
+
+async function handleNicknameSave(rawNickname) {
+  if (activeNicknameSave) {
+    return;
+  }
+
+  const state = getState();
+  const user = state.user;
+  if (!user?.uid) {
+    showToast('로그인 후 이용할 수 있습니다.', 'info');
+    return;
+  }
+
+  const nextNickname = normalizeNickname(rawNickname);
+  const currentNickname = normalizeNickname(user.displayName || '모험가');
+
+  if (Array.from(nextNickname).length < NICKNAME_MIN_LENGTH) {
+    showToast('닉네임은 2자 이상 입력해 주세요.', 'info');
+    renderLobby(user, state.currentRun, {
+      hasUpgradeShop: hasUpgradeShop(),
+      isNicknameSaving: false,
+      nicknameValue: rawNickname,
+      nicknameStatus: '닉네임은 2~16자로 입력해 주세요.',
+    });
+    return;
+  }
+
+  if (nextNickname === currentNickname) {
+    showToast('이미 사용 중인 닉네임입니다.', 'info');
+    renderLobby(user, state.currentRun, {
+      hasUpgradeShop: hasUpgradeShop(),
+      isNicknameSaving: false,
+      nicknameValue: nextNickname,
+      nicknameStatus: '현재 사용 중인 닉네임입니다.',
+    });
+    return;
+  }
+
+  const previousUser = cloneJsonCompatible(user);
+  const nextUser = {
+    ...user,
+    displayName: nextNickname,
+  };
+
+  activeNicknameSave = true;
+  setState({ user: nextUser });
+  renderLobby(nextUser, state.currentRun, {
+    hasUpgradeShop: hasUpgradeShop(),
+    isNicknameSaving: true,
+    nicknameValue: nextNickname,
+    nicknameStatus: '닉네임을 저장하는 중입니다...',
+  });
+
+  try {
+    await saveUserMeta(user.uid, {
+      displayName: nextNickname,
+    });
+    showToast('닉네임을 저장했습니다.', 'success');
+  } catch (error) {
+    console.error('[app] Failed to save nickname', error);
+    setState({ user: previousUser });
+    renderLobby(previousUser, state.currentRun, {
+      hasUpgradeShop: hasUpgradeShop(),
+      isNicknameSaving: false,
+      nicknameValue: nextNickname,
+      nicknameStatus: '닉네임 저장에 실패했습니다. 다시 시도해 주세요.',
+    });
+    showToast('닉네임 저장에 실패했습니다. 다시 시도해 주세요.', 'error');
+  } finally {
+    activeNicknameSave = false;
+    if (getState().uiState.screen === AppState.LOBBY) {
+      renderLobbyState();
+    }
   }
 }
 
@@ -1776,9 +1869,7 @@ async function restoreAuthenticatedSession(authUser, inheritedPerfSession = null
       if (!restored) {
         perfSession.startStep('lobby-fallback');
         transitionTo(AppState.LOBBY);
-        renderLobby(user, getState().currentRun, {
-          hasUpgradeShop: hasUpgradeShop(),
-        });
+        renderLobbyState();
         perfSession.endStep('lobby-fallback');
       }
       perfSession.endStep('session-restore', {
@@ -1792,9 +1883,7 @@ async function restoreAuthenticatedSession(authUser, inheritedPerfSession = null
     }
 
     perfSession.startStep('lobby-entry');
-    renderLobby(user, restoredRun, {
-      hasUpgradeShop: hasUpgradeShop(),
-    });
+    renderLobbyState();
     transitionTo(AppState.LOBBY);
     perfSession.endStep('lobby-entry');
     perfSession.endStep('session-restore', {
@@ -1894,6 +1983,7 @@ function handleSignedOut() {
   activeAuthTaskId += 1;
   classSelectLocked = false;
   activeUpgradePurchaseId = null;
+  activeNicknameSave = false;
   cancelQueuedAutoSave();
   clearTransientViews();
   setState({
@@ -1919,6 +2009,10 @@ function handleSignedOut() {
 }
 
 async function boot() {
+  if (typeof window !== 'undefined' && window.__PH_BOOT_DIAG__) {
+    window.__PH_BOOT_DIAG__.bootStarted = true;
+    window.__PH_BOOT_DIAG__.bootStartedAt = Date.now();
+  }
   const bootPerfSession = createPerfSession('cold-boot', {
     path: typeof window !== 'undefined' ? window.location.pathname : '/',
   });
@@ -1941,6 +2035,9 @@ async function boot() {
     },
     onUpgrade: () => {
       handleUpgrade();
+    },
+    onNicknameSave: (nickname) => {
+      void handleNicknameSave(nickname);
     },
     onUpgradeBack: () => {
       handleUpgradeBack();
@@ -2051,9 +2148,7 @@ subscribe((state) => {
   renderScreen(state.uiState.screen);
 
   if (state.uiState.screen === AppState.LOBBY && state.user) {
-    renderLobby(state.user, state.currentRun, {
-      hasUpgradeShop: hasUpgradeShop(),
-    });
+    renderLobbyState();
   }
 
   if (state.uiState.screen === AppState.UPGRADE && state.user) {
@@ -2077,8 +2172,14 @@ subscribe((state) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+function startAppBootstrap() {
   const { uiState } = getState();
   renderScreen(uiState.screen);
   void boot();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startAppBootstrap, { once: true });
+} else {
+  startAppBootstrap();
+}

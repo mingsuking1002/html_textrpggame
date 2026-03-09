@@ -139,7 +139,7 @@
 | export | `setBootProgress` | `(current, total, label) → void` | 부트 프로그레스 바/라벨 갱신 |
 | export | `setAuthStatus` | `(options) → void` | 인증 화면 상태 표시 |
 | export | `renderSoundControls` | `(bgmVol, sfxVol, onChange?) → void` | 전역 사운드 컨트롤 UI 갱신 |
-| export | `renderLobby` | `(user, currentRun?, options?) → void` | 로비 화면 렌더 (결정/강화 버튼 포함) |
+| export | `renderLobby` | `(user, currentRun?, options?) → void` | 로비 화면 렌더 (결정/강화 버튼, 닉네임 입력/저장 상태 포함) |
 | export | `renderClassSelection` | `(classCards, options?) → void` | 직업 선택 화면 렌더 |
 | export | `renderStory` | `(renderModel, context) → void` | 스토리/상점 화면 렌더 |
 | export | `renderUpgradeShop` | `(upgradeDefs, userUpgrades, crystals, options?) → void` | 강화 상점 화면 렌더 |
@@ -208,6 +208,7 @@
 |------|--------|----------|------|
 | (entry) | `boot` | `() → Promise<void>` | 앱 부트 (Firebase → Auth → 화면 전환) |
 | internal | `transitionTo` | `(nextScreen) → void` | 화면 전환 (setState 래퍼) |
+| internal | `normalizeNickname` | `(value) → string` | 닉네임 공백 정리 + 16자 제한 정규화 |
 | internal | `getLocalBackupKey` | `(uid) → string` | currentRun localStorage 키 생성 |
 | internal | `saveLocalBackup` | `(uid, data) → void` | currentRun 오프라인 백업 저장 |
 | internal | `loadLocalBackup` | `(uid) → RunState\|null` | currentRun 오프라인 백업 로드 |
@@ -223,6 +224,7 @@
 | internal | `resetBootProgressState` | `() → void` | 부트 프로그레스 초기화 |
 | internal | `loadAllDataParallel` | `(authUser, perfSession?) → Promise<{gameData, user}>` | GameData/UserData 병렬 로드 + progress/fallback 처리 + 계측 기록 |
 | internal | `renderLobbyState` | `() → void` | 현재 상태 기반 로비 렌더 |
+| internal | `handleNicknameSave` | `(rawNickname) → Promise<void>` | 로비 닉네임 저장 처리 (`Users/{uid}.displayName`) |
 | internal | `formatRewardToast` | `(encounter, rewardSummary, symbolsData) → string` | 보상 토스트 메시지 생성 |
 | internal | `formatCombatRewards` | `(rewardSummary, symbolsData) → string` | 전투 보상 토스트 메시지 생성 |
 | internal | `cloneJsonCompatible` | `(value) → clone` | JSON 깊은 복사 |
@@ -236,6 +238,7 @@
 | internal | `handleLogout` | `() → Promise<void>` | 로그아웃 처리 |
 | internal | `handleSignedOut` | `() → void` | 로그아웃 후 상태 정리 |
 | internal | `restoreAuthenticatedSession` | `(authUser, inheritedPerfSession?) → Promise<void>` | 인증 세션 복구 (데이터 로드 + 런 복구 + 계측 리포트 출력) |
+| internal | `startAppBootstrap` | `() → void` | DOMContentLoaded 이전/이후 모두 안전하게 앱 부트를 시작 |
 | internal | `persistRun` | `(runSnapshot, options?) → Promise<boolean>` | currentRun 즉시 저장 |
 | internal | `queueAutoSave` | `(reason, runOverride?) → Promise<boolean>` | debounce 기반 Auto-save 예약 |
 | internal | `flushQueuedAutoSave` | `() → Promise<boolean>` | 예약된 Auto-save 즉시 실행 |

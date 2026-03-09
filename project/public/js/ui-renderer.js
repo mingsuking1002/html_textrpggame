@@ -54,8 +54,10 @@ function getElements() {
     startRunButton: document.getElementById('btn-start-run'),
     upgradeButton: document.getElementById('btn-upgrade'),
     lobbyDisplayName: document.getElementById('lobby-display-name'),
-    lobbyUserId: document.getElementById('lobby-user-id'),
     lobbySubtitle: document.getElementById('lobby-subtitle'),
+    lobbyNicknameInput: document.getElementById('lobby-nickname-input'),
+    lobbyNicknameSaveButton: document.getElementById('btn-save-nickname'),
+    lobbyNicknameStatus: document.getElementById('lobby-nickname-status'),
     lobbyRunStatus: document.getElementById('lobby-run-status'),
     totalGold: document.getElementById('meta-total-gold'),
     highestStage: document.getElementById('meta-highest-stage'),
@@ -333,6 +335,15 @@ export function bindUIActions(handlers) {
   dom.logoutButton.onclick = handlers.onLogout || null;
   dom.startRunButton.onclick = handlers.onStartRun || null;
   dom.upgradeButton.onclick = handlers.onUpgrade || null;
+  dom.lobbyNicknameSaveButton.onclick = () => {
+    handlers.onNicknameSave?.(dom.lobbyNicknameInput.value);
+  };
+  dom.lobbyNicknameInput.onkeydown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handlers.onNicknameSave?.(dom.lobbyNicknameInput.value);
+    }
+  };
   dom.upgradeBackButton.onclick = handlers.onUpgradeBack || null;
   dom.bootRetryButton.onclick = handlers.onBootRetry || null;
   dom.combatSpinButton.onclick = handlers.onCombatSpin || null;
@@ -448,9 +459,19 @@ export function renderLobby(user, currentRun = null, options = {}) {
   const dom = getElements();
   const isActiveRun = Boolean(currentRun?.isActive);
   const hasUpgradeShop = Boolean(options.hasUpgradeShop);
+  const nicknameStatus = options.nicknameStatus
+    || '로비와 랭킹에 표시될 이름입니다. 2~16자로 설정해 주세요.';
+  const isNicknameSaving = Boolean(options.isNicknameSaving);
+  const nicknameValue = typeof options.nicknameValue === 'string'
+    ? options.nicknameValue
+    : (user?.displayName || '');
 
-  dom.lobbyDisplayName.textContent = user?.displayName || '이름 없음';
-  dom.lobbyUserId.textContent = user?.uid || '-';
+  dom.lobbyDisplayName.textContent = user?.displayName || '모험가';
+  dom.lobbyNicknameInput.value = nicknameValue;
+  dom.lobbyNicknameInput.disabled = isNicknameSaving;
+  dom.lobbyNicknameSaveButton.disabled = isNicknameSaving;
+  dom.lobbyNicknameSaveButton.textContent = isNicknameSaving ? '저장 중...' : '닉네임 저장';
+  dom.lobbyNicknameStatus.textContent = nicknameStatus;
   dom.totalGold.textContent = formatNumber(user?.totalGoldEarned);
   dom.highestStage.textContent = formatNumber(user?.highestStage);
   dom.crystals.textContent = formatNumber(user?.crystals);

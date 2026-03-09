@@ -27,6 +27,11 @@ const state = {
     authBusy: false,
     authMessage: '구글 계정으로 로그인해 주세요.',
     bootMessage: '로딩 중...',
+    bootProgress: {
+      current: 0,
+      total: 0,
+      label: '',
+    },
   },
   user: null,
   currentRun: null,

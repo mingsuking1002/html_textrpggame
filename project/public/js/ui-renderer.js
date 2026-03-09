@@ -11,9 +11,11 @@ const TOAST_LIMIT = 4;
 const TOAST_DURATION_MS = 3800;
 const COMBAT_SLOT_REVEAL_MS = 140;
 const COMBAT_ANIMATION_STEP_MS = 260;
+const BOOT_PROGRESS_REVEAL_MS = 300;
 
 let elements = null;
 let uiHandlers = {};
+let bootProgressRevealTimer = null;
 
 const SCREEN_IDS = Object.freeze({
   BOOT: 'screen-boot',
@@ -42,6 +44,9 @@ function getElements() {
     bootMessage: document.getElementById('boot-message'),
     bootError: document.getElementById('boot-error'),
     bootRetryButton: document.getElementById('btn-boot-retry'),
+    bootProgressContainer: document.getElementById('boot-progress-container'),
+    bootProgressFill: document.getElementById('boot-progress-fill'),
+    bootProgressLabel: document.getElementById('boot-progress-label'),
     authStatus: document.getElementById('auth-status'),
     authRetryButton: document.getElementById('btn-auth-retry'),
     googleLoginButton: document.getElementById('btn-google-login'),
@@ -290,6 +295,17 @@ function renderCombatLogEntries(logs) {
   dom.combatLog.scrollTop = dom.combatLog.scrollHeight;
 }
 
+function resetBootProgressDom(dom) {
+  if (bootProgressRevealTimer) {
+    window.clearTimeout(bootProgressRevealTimer);
+    bootProgressRevealTimer = null;
+  }
+
+  dom.bootProgressContainer.hidden = true;
+  dom.bootProgressFill.style.width = '0%';
+  dom.bootProgressLabel.textContent = '';
+}
+
 export function createIcon(iconPath, altText, className = 'entity-icon') {
   const safeAltText = typeof altText === 'string' ? altText : '?';
 
@@ -357,6 +373,37 @@ export function setBootStatus(message, options = {}) {
   } else {
     dom.bootError.textContent = '';
   }
+}
+
+export function setBootProgress(current, total, label) {
+  const dom = getElements();
+  const safeTotal = Math.max(0, Number(total || 0));
+  const safeCurrent = Math.max(0, Math.min(safeTotal, Number(current || 0)));
+
+  if (safeTotal <= 0) {
+    resetBootProgressDom(dom);
+    return;
+  }
+
+  dom.bootProgressFill.style.width = `${safeTotal > 0 ? (safeCurrent / safeTotal) * 100 : 0}%`;
+  dom.bootProgressLabel.textContent = `${formatNumber(safeCurrent)} / ${formatNumber(safeTotal)} · ${label || '로딩 중...'}`;
+
+  if (safeCurrent >= safeTotal) {
+    if (bootProgressRevealTimer) {
+      window.clearTimeout(bootProgressRevealTimer);
+      bootProgressRevealTimer = null;
+    }
+    return;
+  }
+
+  if (!dom.bootProgressContainer.hidden || bootProgressRevealTimer) {
+    return;
+  }
+
+  bootProgressRevealTimer = window.setTimeout(() => {
+    dom.bootProgressContainer.hidden = false;
+    bootProgressRevealTimer = null;
+  }, BOOT_PROGRESS_REVEAL_MS);
 }
 
 export function setAuthStatus(options) {

@@ -5,7 +5,8 @@
  */
 
 import {
-  loadGameData,
+  GAME_DATA_DOC_COUNT,
+  loadGameDataWithProgress,
   loadTopRankings,
   loadUserData,
   saveCurrentRun,
@@ -49,6 +50,7 @@ import {
   renderScreen,
   renderStory,
   setAuthStatus,
+  setBootProgress,
   setBootStatus,
   showToast,
 } from './ui-renderer.js';
@@ -149,6 +151,23 @@ function syncSoundControls() {
   }
 
   renderSoundControls(getVolume('bgm'), getVolume('sfx'));
+}
+
+function updateBootProgressState(current, total, label) {
+  setState({
+    uiState: {
+      bootProgress: {
+        current,
+        total,
+        label,
+      },
+    },
+  });
+  setBootProgress(current, total, label);
+}
+
+function resetBootProgressState() {
+  updateBootProgressState(0, 0, '');
 }
 
 function transitionTo(nextScreen) {
@@ -1385,13 +1404,79 @@ async function handleEndingSecondary() {
   }
 }
 
+async function loadAllDataParallel(authUser) {
+  const progressTotal = GAME_DATA_DOC_COUNT + 1;
+  const loadedDocs = new Set();
+  let isUserLoaded = false;
+  let userLoadError = null;
+
+  const updateProgress = (label) => {
+    const current = loadedDocs.size + (isUserLoaded ? 1 : 0);
+    updateBootProgressState(current, progressTotal, label);
+  };
+
+  updateProgress('데이터 로드를 시작합니다.');
+
+  const gameDataPromise = loadGameDataWithProgress((current, total, docId) => {
+    loadedDocs.add(docId);
+    updateProgress(`GameData/${docId} 로드 완료 (${current}/${total})`);
+  });
+
+  const userPromise = loadUserData(authUser)
+    .then((user) => {
+      isUserLoaded = true;
+      updateProgress('유저 데이터 로드 완료');
+      return user;
+    })
+    .catch((error) => {
+      userLoadError = error;
+      return null;
+    });
+
+  const [gameData, loadedUser] = await Promise.all([gameDataPromise, userPromise]);
+
+  if (loadedUser) {
+    clearLocalBackup(authUser.uid);
+    updateBootProgressState(progressTotal, progressTotal, '데이터 로드 완료');
+    return { gameData, user: loadedUser };
+  }
+
+  const backupRun = loadLocalBackup(authUser.uid);
+
+  if (!backupRun) {
+    throw userLoadError;
+  }
+
+  isUserLoaded = true;
+  updateBootProgressState(progressTotal, progressTotal, '오프라인 백업 복구 완료');
+  showToast('Firestore 로드에 실패해 오프라인 백업에서 복구했습니다.', 'info');
+
+  return {
+    gameData,
+    user: {
+      uid: authUser.uid,
+      email: authUser.email || null,
+      photoURL: authUser.photoURL || null,
+      displayName: authUser.displayName || '모험가',
+      createdAt: null,
+      totalGoldEarned: 0,
+      highestStage: Math.max(0, Number(backupRun.stage || 0)),
+      crystals: 0,
+      upgrades: {},
+      currentRun: backupRun,
+    },
+  };
+}
+
 async function restoreAuthenticatedSession(authUser) {
   const taskId = ++activeAuthTaskId;
   retryAuthLoad = () => {
     void restoreAuthenticatedSession(authUser);
   };
 
-  transitionTo(AppState.AUTH);
+  transitionTo(AppState.BOOT);
+  setBootStatus('로그인 확인 완료. 데이터를 동기화하는 중...');
+  updateBootProgressState(0, GAME_DATA_DOC_COUNT + 1, '불러오는 중...');
   setState({
     uiState: {
       authBusy: true,
@@ -1406,7 +1491,7 @@ async function restoreAuthenticatedSession(authUser) {
   });
 
   try {
-    const gameData = await loadGameData();
+    const { gameData, user } = await loadAllDataParallel(authUser);
 
     if (taskId !== activeAuthTaskId) {
       return;
@@ -1414,32 +1499,6 @@ async function restoreAuthenticatedSession(authUser) {
 
     initSoundManager(gameData?.config?.sounds || null);
     syncSoundControls();
-    let user;
-
-    try {
-      user = await loadUserData(authUser);
-      clearLocalBackup(authUser.uid);
-    } catch (userLoadError) {
-      const backupRun = loadLocalBackup(authUser.uid);
-
-      if (!backupRun) {
-        throw userLoadError;
-      }
-
-      user = {
-        uid: authUser.uid,
-        email: authUser.email || null,
-        photoURL: authUser.photoURL || null,
-        displayName: authUser.displayName || '모험가',
-        createdAt: null,
-        totalGoldEarned: 0,
-        highestStage: Math.max(0, Number(backupRun.stage || 0)),
-        crystals: 0,
-        upgrades: {},
-        currentRun: backupRun,
-      };
-      showToast('Firestore 로드에 실패해 오프라인 백업에서 복구했습니다.', 'info');
-    }
 
     if (taskId !== activeAuthTaskId) {
       return;
@@ -1458,6 +1517,7 @@ async function restoreAuthenticatedSession(authUser) {
         authMessage: '로비 진입 완료',
       },
     });
+    resetBootProgressState();
 
     if (restoredRun.isActive) {
       showToast('이전 런이 감지되었습니다. 이어서 진행합니다.', 'info');
@@ -1481,6 +1541,7 @@ async function restoreAuthenticatedSession(authUser) {
     }
 
     console.error('[app] Failed to restore authenticated session', error);
+    resetBootProgressState();
     transitionTo(AppState.AUTH);
     setState({
       user: null,
@@ -1569,6 +1630,7 @@ function handleSignedOut() {
   });
   stopBGM();
   initSoundManager(null);
+  resetBootProgressState();
   renderSoundControls(null, null);
   transitionTo(AppState.AUTH);
   setAuthStatus({
@@ -1643,6 +1705,7 @@ async function boot() {
 
   transitionTo(AppState.BOOT);
   setBootStatus('Firebase 초기화 중...');
+  resetBootProgressState();
   initSoundManager(null);
   renderSoundControls(null, null);
 
@@ -1658,6 +1721,7 @@ async function boot() {
   }
 
   setBootStatus('인증 상태를 확인하는 중...');
+  resetBootProgressState();
   transitionTo(AppState.AUTH);
   setAuthStatus({
     message: '구글 계정으로 로그인해 주세요.',

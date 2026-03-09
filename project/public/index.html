@@ -123,6 +123,27 @@
       color: var(--danger);
     }
 
+    .progress-container {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.8);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      transition: width 200ms ease;
+    }
+
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -754,6 +775,12 @@
         <h1 id="boot-title" class="panel-title">파친코 히어로</h1>
         <p class="panel-copy">Firebase 인증과 게임 데이터를 준비하는 중입니다.</p>
         <p id="boot-message" class="status-text" aria-live="polite">로딩 중...</p>
+        <div id="boot-progress-container" class="progress-container" hidden>
+          <div class="progress-bar" aria-hidden="true">
+            <div id="boot-progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="boot-progress-label" class="status-text">0 / 0</p>
+        </div>
         <p id="boot-error" class="status-text error" aria-live="assertive" hidden></p>
         <div class="actions">
           <button id="btn-boot-retry" class="button-secondary" type="button" hidden>다시 시도</button>

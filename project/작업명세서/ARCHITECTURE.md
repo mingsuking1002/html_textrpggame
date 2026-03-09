@@ -17,7 +17,7 @@
 | export | `getFirestoreDb` | `() → Firestore` | Firestore 인스턴스 반환 |
 | export | `getAuthInstance` | `() → Auth` | Auth 인스턴스 반환 |
 
-**내부 상태:** `firebaseApp`, `firebaseAuth`, `firestoreDb`, `googleProvider` (모듈 스코프 let)
+**내부 상태:** `firebaseApp`, `firebaseAuth`, `firestoreDb`, `googleProvider`, `persistenceInitialized` (모듈 스코프 let)
 
 ---
 
@@ -25,7 +25,9 @@
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
+| export const | `GAME_DATA_DOC_COUNT` | `number` | GameData 문서 개수 (progress 계산용) |
 | export | `loadGameData` | `() → Promise<GameDataCache>` | GameData 7문서 병렬 로드 + deepFreeze 캐싱 |
+| export | `loadGameDataWithProgress` | `(onProgress) → Promise<GameDataCache>` | GameData 병렬 로드 + 문서별 progress 콜백 |
 | export | `loadUserData` | `(authSource, authProfile?) → Promise<UserDoc>` | Users/{uid} 로드 (없으면 초기 문서 생성) |
 | export | `saveCurrentRun` | `(uid, currentRun) → Promise<void>` | currentRun 필드 Auto-save + localStorage 백업 미러링 |
 | export | `saveUserMeta` | `(uid, meta) → Promise<void>` | 유저 메타 정보 저장 (재화/기록 등) |
@@ -35,6 +37,7 @@
 | internal | `cloneData` | `(value) → clone` | JSON 깊은 복사 |
 | internal | `getLocalBackupKey` | `(uid) → string` | currentRun localStorage 키 생성 |
 | internal | `mirrorLocalBackup` | `(uid, currentRun) → void` | currentRun localStorage 미러 저장 |
+| internal | `createGameDataLoadPromise` | `(onProgress?) → Promise<GameDataCache>` | GameData 병렬 로드 공통 구현 |
 | internal | `normalizeAuthSource` | `(authSource, authProfile?) → AuthProfile` | Firebase User 또는 uid 문자열을 통일된 프로필로 변환 |
 | internal | `buildInitialUserDoc` | `(authProfile) → UserDoc` | 최초 등록 유저 문서 생성 (`crystals`, `upgrades` 기본값 포함) |
 | internal | `buildUserFallback` | `(authProfile) → UserDoc` | 오프라인 등 fallback 유저 문서 (`crystals`, `upgrades` 기본값 포함) |
@@ -55,7 +58,7 @@
 **State 구조:**
 ```js
 {
-  uiState: { screen, authBusy, authMessage, bootMessage },
+  uiState: { screen, authBusy, authMessage, bootMessage, bootProgress },
   user: null | UserDoc,
   currentRun: null | RunState, // RunState.combatContext 포함
   gameData: null | GameDataCache,
@@ -133,6 +136,7 @@
 | export | `bindUIActions` | `(handlers) → void` | UI 이벤트 핸들러 바인딩 |
 | export | `renderScreen` | `(screenId) → void` | 화면 전환 (show/hide) |
 | export | `setBootStatus` | `(message, options?) → void` | 부트 화면 상태 표시 |
+| export | `setBootProgress` | `(current, total, label) → void` | 부트 프로그레스 바/라벨 갱신 |
 | export | `setAuthStatus` | `(options) → void` | 인증 화면 상태 표시 |
 | export | `renderSoundControls` | `(bgmVol, sfxVol, onChange?) → void` | 전역 사운드 컨트롤 UI 갱신 |
 | export | `renderLobby` | `(user, currentRun?, options?) → void` | 로비 화면 렌더 (결정/강화 버튼 포함) |
@@ -152,6 +156,7 @@
 | internal | `clearChildren` | `(element) → void` | 자식 노드 전부 제거 |
 | internal | `createTextElement` | `(tagName, className, text) → Element` | 텍스트 요소 생성 |
 | internal | `createIconFallback` | `(altText, className?) → Element` | 이미지 로드 실패 시 fallback 생성 |
+| internal | `resetBootProgressDom` | `(dom) → void` | 부트 프로그레스 DOM 리셋/숨김 |
 | internal | `createChip` | `(text, className?) → Element` | 칩(태그) 요소 생성 |
 | internal | `createStatCard` | `(label, value) → Element` | 엔딩/정산 카드 생성 |
 | internal | `countFilledDeckSlots` | `(deck) → number` | 채워진 덱 슬롯 수 (렌더용) |
@@ -209,6 +214,9 @@
 | internal | `clearLocalBackup` | `(uid) → void` | currentRun 오프라인 백업 삭제 |
 | internal | `getBgmTrackForScreen` | `(screen) → trackId` | 화면 상태 → BGM 트랙 매핑 |
 | internal | `syncSoundControls` | `() → void` | 전역 사운드 컨트롤 UI 동기화 |
+| internal | `updateBootProgressState` | `(current, total, label) → void` | uiState.bootProgress + 부트 바 동기화 |
+| internal | `resetBootProgressState` | `() → void` | 부트 프로그레스 초기화 |
+| internal | `loadAllDataParallel` | `(authUser) → Promise<{gameData, user}>` | GameData/UserData 병렬 로드 + progress/fallback 처리 |
 | internal | `renderLobbyState` | `() → void` | 현재 상태 기반 로비 렌더 |
 | internal | `formatRewardToast` | `(encounter, rewardSummary, symbolsData) → string` | 보상 토스트 메시지 생성 |
 | internal | `formatCombatRewards` | `(rewardSummary, symbolsData) → string` | 전투 보상 토스트 메시지 생성 |
@@ -300,3 +308,4 @@ graph LR
 | 2026-03-09 | Phase 1~5 구현 기준으로 모듈 아키텍처 문서 동기화 |
 | 2026-03-09 | Phase 6~8 반영: 강화 상점, 전투 연출/복구, 콘텐츠 확장 기준으로 문서 갱신 |
 | 2026-03-09 | Phase 9~13 반영: 전투 리롤/시너지, 사운드, 이미지 placeholder, localStorage 백업, Firestore Rules 기준으로 문서 갱신 |
+| 2026-03-09 | Phase 14 반영: Firestore persistence, 병렬 데이터 로드, 부트 progress UI 기준으로 문서 갱신 |

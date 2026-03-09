@@ -27,6 +27,7 @@ const GAME_DATA_DOC_IDS = Object.freeze([
   'story',
   'endings',
 ]);
+export const GAME_DATA_DOC_COUNT = GAME_DATA_DOC_IDS.length;
 const LOCAL_BACKUP_PREFIX = 'ph:current-run:';
 
 let gameDataCache = null;
@@ -127,18 +128,11 @@ function buildUserFallback(authProfile) {
   };
 }
 
-export async function loadGameData() {
-  if (gameDataCache) {
-    return gameDataCache;
-  }
-
-  if (gameDataPromise) {
-    return gameDataPromise;
-  }
-
+function createGameDataLoadPromise(onProgress = null) {
   const db = getFirestoreDb();
+  let loadedCount = 0;
 
-  gameDataPromise = Promise.all(
+  return Promise.all(
     GAME_DATA_DOC_IDS.map(async (docId) => {
       const snapshot = await getDoc(doc(db, 'GameData', docId));
 
@@ -146,6 +140,8 @@ export async function loadGameData() {
         throw new Error(`Missing GameData/${docId}`);
       }
 
+      loadedCount += 1;
+      onProgress?.(loadedCount, GAME_DATA_DOC_COUNT, docId);
       return [docId, snapshot.data()];
     }),
   )
@@ -162,7 +158,34 @@ export async function loadGameData() {
     .finally(() => {
       gameDataPromise = null;
     });
+}
 
+export async function loadGameData() {
+  if (gameDataCache) {
+    return gameDataCache;
+  }
+
+  if (gameDataPromise) {
+    return gameDataPromise;
+  }
+
+  gameDataPromise = createGameDataLoadPromise();
+  return gameDataPromise;
+}
+
+export async function loadGameDataWithProgress(onProgress) {
+  if (gameDataCache) {
+    GAME_DATA_DOC_IDS.forEach((docId, index) => {
+      onProgress?.(index + 1, GAME_DATA_DOC_COUNT, docId);
+    });
+    return gameDataCache;
+  }
+
+  if (gameDataPromise) {
+    return gameDataPromise;
+  }
+
+  gameDataPromise = createGameDataLoadPromise(onProgress);
   return gameDataPromise;
 }
 

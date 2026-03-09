@@ -12,7 +12,10 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  enableMultiTabIndexedDbPersistence,
+  getFirestore,
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyB2pT-edyhVGzdwmWztACHhblazEAcNSZ8',
@@ -28,6 +31,7 @@ let firebaseApp = null;
 let firebaseAuth = null;
 let firestoreDb = null;
 let googleProvider = null;
+let persistenceInitialized = false;
 
 export function initFirebase() {
   if (firebaseApp) {
@@ -37,6 +41,12 @@ export function initFirebase() {
   firebaseApp = initializeApp(firebaseConfig);
   firebaseAuth = getAuth(firebaseApp);
   firestoreDb = getFirestore(firebaseApp);
+  if (!persistenceInitialized) {
+    persistenceInitialized = true;
+    enableMultiTabIndexedDbPersistence(firestoreDb).catch((error) => {
+      console.warn('[firebase-init] Persistence not available:', error?.code || error);
+    });
+  }
   googleProvider = new GoogleAuthProvider();
   googleProvider.setCustomParameters({ prompt: 'select_account' });
 

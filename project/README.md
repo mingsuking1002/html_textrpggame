@@ -1,6 +1,6 @@
 # PachinkoHero Web RPG
 
-Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_Phase1_AuthAndDataLoad`부터 `SPEC_Phase13_QualityAndExtensibility`까지입니다.
+Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_Phase1_AuthAndDataLoad`부터 `SPEC_Phase14_LoadingOptimization`까지입니다.
 
 ## 실행
 
@@ -12,8 +12,12 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 ## 현재 포함 기능
 
 - Firebase Web SDK(v11 import map) 초기화
+- Firestore IndexedDB multi-tab persistence 활성화 시도
 - Google Auth 팝업 로그인 / 로그아웃
 - `GameData/config`, `classes`, `symbols`, `monsters`, `encounters`, `story`, `endings` 병렬 로드 및 메모리 캐시
+- 로그인 세션 복구 시 `GameData + Users/{uid}` 병렬 로드
+- BOOT 화면 progress bar + 로딩 항목 라벨 표시 (`7 GameData + 1 User`)
+- 300ms 미만 완료 시 progress bar 비노출로 깜빡임 방지
 - `Users/{uid}` 최초 로그인 문서 생성
 - 로비 -> 강화 -> 직업 선택 -> 프롤로그 -> 스토리/전투 반복 -> 엔딩 -> 랭킹/정산 -> 로비 앱 루프
 - `Users/{uid}.upgrades`, `crystals` 기반 영구 강화 상점
@@ -55,6 +59,8 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 전투 라운드 직후와 상점 구매 직후에 Firestore `Users/{uid}.currentRun`이 갱신되는지 확인
 - 새로고침 후 전투 진행 중이던 런은 COMBAT 화면과 적 HP 상태까지 복구되는지 확인
 - 오프라인 상태 저장 후 재접속 시 localStorage 백업 복구가 동작하는지 확인
+- 재방문 시 Firestore 캐시 효과로 로비 진입이 빨라지는지 확인
+- BOOT progress가 `1/8 → 8/8`로 갱신되고 로비/복구 진입 후 남아있지 않는지 확인
 - 로비/전투/엔딩에서 BGM 교체, SFX 재생, 볼륨 슬라이더/음소거 토글 유지 여부 확인
 - 엔딩 화면에서 정산 후 `Users/{uid}.currentRun.isActive=false`, `totalGoldEarned`, `highestStage`, `crystals`가 갱신되는지 확인
 - 성공 엔딩 시 `Rankings` 컬렉션 문서 생성과 상위 10위 표시가 되는지 확인

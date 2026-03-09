@@ -27,6 +27,7 @@ const GAME_DATA_DOC_IDS = Object.freeze([
   'story',
   'endings',
 ]);
+const LOCAL_BACKUP_PREFIX = 'ph:current-run:';
 
 let gameDataCache = null;
 let gameDataPromise = null;
@@ -47,6 +48,25 @@ function deepFreeze(value) {
 
 function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function getLocalBackupKey(uid) {
+  return `${LOCAL_BACKUP_PREFIX}${uid}`;
+}
+
+function mirrorLocalBackup(uid, currentRun) {
+  if (!uid || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getLocalBackupKey(uid), JSON.stringify({
+      savedAt: new Date().toISOString(),
+      currentRun: cloneData(currentRun),
+    }));
+  } catch (error) {
+    console.warn('[db-manager] Failed to mirror local backup', error);
+  }
 }
 
 function normalizeUpgradeMap(upgrades) {
@@ -183,15 +203,23 @@ export async function loadUserData(authSource, authProfile = null) {
 export async function saveCurrentRun(uid, currentRun) {
   const db = getFirestoreDb();
   const userRef = doc(db, 'Users', uid);
+  const runSnapshot = cloneData(currentRun);
 
-  // TODO: Firestore Rules / server validation must restrict write access to auth.uid only.
-  await setDoc(
-    userRef,
-    {
-      currentRun: cloneData(currentRun),
-    },
-    { merge: true },
-  );
+  try {
+    // TODO: Firestore Rules / server validation must restrict write access to auth.uid only.
+    await setDoc(
+      userRef,
+      {
+        currentRun: runSnapshot,
+      },
+      { merge: true },
+    );
+    mirrorLocalBackup(uid, runSnapshot);
+  } catch (error) {
+    mirrorLocalBackup(uid, runSnapshot);
+    error.localBackupSaved = true;
+    throw error;
+  }
 }
 
 export async function saveUserMeta(uid, meta = {}) {

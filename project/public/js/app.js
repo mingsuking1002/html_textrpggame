@@ -33,6 +33,7 @@ import {
   buildCombatEnemy,
   createCombatState,
   executeCombatRound,
+  spin,
 } from './combat-engine.js';
 import {
   bindUIActions,
@@ -43,6 +44,7 @@ import {
   renderCombatVictory,
   renderEndingView,
   renderLobby,
+  renderSoundControls,
   renderUpgradeShop,
   renderScreen,
   renderStory,
@@ -50,11 +52,22 @@ import {
   setBootStatus,
   showToast,
 } from './ui-renderer.js';
+import {
+  getVolume,
+  initSoundManager,
+  isMuted,
+  playBGM,
+  playSFX,
+  setMuted,
+  setVolume,
+  stopBGM,
+} from './sound-manager.js';
 
 const AUTO_SAVE_DELAY_MS = 300;
 const COMBAT_BLOCKED_REASON = 'combat_in_progress';
 const LOG_LIMIT = 500;
 const COMBAT_RESULT_SETTLE_DELAY_MS = 650;
+const LOCAL_BACKUP_PREFIX = 'ph:current-run:';
 
 let authUnsubscribe = null;
 let activeAuthTaskId = 0;
@@ -66,12 +79,86 @@ let queuedAutoSaveResolvers = [];
 let queuedAutoSaveRun = null;
 let activeUpgradePurchaseId = null;
 
+function getLocalBackupKey(uid) {
+  return `${LOCAL_BACKUP_PREFIX}${uid}`;
+}
+
+function saveLocalBackup(uid, data) {
+  if (!uid || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getLocalBackupKey(uid), JSON.stringify({
+      savedAt: new Date().toISOString(),
+      currentRun: cloneJsonCompatible(data),
+    }));
+  } catch (error) {
+    console.warn('[app] Failed to save local backup', error);
+  }
+}
+
+function loadLocalBackup(uid) {
+  if (!uid || typeof window === 'undefined' || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(getLocalBackupKey(uid));
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed?.currentRun ? normalizeRunState(parsed.currentRun) : null;
+  } catch (error) {
+    console.warn('[app] Failed to load local backup', error);
+    return null;
+  }
+}
+
+function clearLocalBackup(uid) {
+  if (!uid || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  window.localStorage.removeItem(getLocalBackupKey(uid));
+}
+
+function getBgmTrackForScreen(screen) {
+  if ([AppState.ENDING_DEATH, AppState.ENDING_SUCCESS, AppState.RANKING, AppState.PAYOUT, AppState.SURVIVAL_CHECK].includes(screen)) {
+    return 'ending';
+  }
+
+  if (screen === AppState.COMBAT) {
+    return 'battle';
+  }
+
+  if ([AppState.LOBBY, AppState.UPGRADE, AppState.CLASS_SELECT, AppState.PROLOGUE, AppState.STORY].includes(screen)) {
+    return 'lobby';
+  }
+
+  return 'title';
+}
+
+function syncSoundControls() {
+  const sounds = getState().gameData?.config?.sounds;
+  if (!sounds) {
+    renderSoundControls(null, null);
+    return;
+  }
+
+  renderSoundControls(getVolume('bgm'), getVolume('sfx'));
+}
+
 function transitionTo(nextScreen) {
   setState({
     uiState: {
       screen: nextScreen,
     },
   });
+
+  void playBGM(getBgmTrackForScreen(nextScreen));
 }
 
 function renderLobbyState() {
@@ -214,6 +301,7 @@ function buildCombatContext(monsterId, combatState) {
     turnCount: Math.max(0, Number(combatState.turnCount || 0)),
     logs: Array.isArray(combatState.logs) ? combatState.logs.slice(-LOG_LIMIT) : [],
     lastSpinResult: combatState.lastSpinResult ? cloneJsonCompatible(combatState.lastSpinResult) : null,
+    isAwaitingSpinCommit: Boolean(combatState.isAwaitingSpinCommit),
     resumeNodeId: combatState.resumeNodeId || null,
     restoreNodeId: combatState.restoreNodeId || combatState.resumeNodeId || null,
     victoryNodeId: combatState.victoryNodeId || null,
@@ -275,12 +363,17 @@ async function persistRun(runSnapshot, options = {}) {
 
   try {
     await saveCurrentRun(user.uid, runSnapshot);
+    saveLocalBackup(user.uid, runSnapshot);
     if (showSuccessToast) {
       showToast(successMessage, 'success');
     }
     return true;
   } catch (error) {
     console.error('[app] Failed to save current run', error);
+    saveLocalBackup(user.uid, runSnapshot);
+    if (error?.localBackupSaved) {
+      showToast('오프라인 백업에 저장했습니다. 네트워크 복구 후 다시 동기화됩니다.', 'info');
+    }
     showToast(errorMessage, 'error');
     return false;
   }
@@ -474,6 +567,7 @@ async function handleUpgradePurchase(upgradeId) {
       crystals: nextUser.crystals,
       upgrades: nextUser.upgrades,
     });
+    playSFX('purchase');
     showToast(`${upgrade.name || upgradeId} 강화 완료`, 'success');
   } catch (error) {
     console.error('[app] Failed to save upgrade purchase', error);
@@ -836,6 +930,7 @@ function handleClassSelect(classId) {
   }
 
   classSelectLocked = true;
+  playSFX('click');
   renderClassSelection(buildClassSelectionModels(state.gameData), { locked: true });
 
   const nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades);
@@ -855,6 +950,8 @@ function handleStoryChoice(choiceIndex) {
     showToast('선택지를 처리하지 못했습니다.', 'error');
     return;
   }
+
+  playSFX('click');
 
   let nextNodeId;
   let updatedState;
@@ -937,19 +1034,20 @@ function handleShopPurchase(symbolId) {
     gameData: state.gameData,
     note: getStoryNote(refreshedRenderModel),
   });
+  playSFX('purchase');
   showToast(`${symbolData?.name || symbolId}을(를) 구매했습니다.`, 'success');
   void queueAutoSave('shop-purchase', refreshedRun);
 }
 
-async function handleCombatSpin() {
+function createCombatSpinPreview(currentRun, gameData) {
+  return spin(currentRun.deck, gameData?.symbols, {
+    spinCount: gameData?.config?.spinCount,
+    synergyDefs: gameData?.config?.synergies,
+  });
+}
+
+async function resolveCombatRound(currentRun, combatState, spinDetail) {
   const state = getState();
-  const combatState = state.combatState;
-  const currentRun = normalizeRunState(state.currentRun);
-
-  if (!combatState || combatState.isResolving) {
-    return;
-  }
-
   const resolvingState = {
     ...combatState,
     isResolving: true,
@@ -965,7 +1063,16 @@ async function handleCombatSpin() {
     currentEnemyHp: combatState.currentEnemyHp,
     config: state.gameData?.config,
     symbolsData: state.gameData?.symbols,
+    spinDetail,
   });
+
+  if (Array.isArray(roundResult.synergies) && roundResult.synergies.length > 0) {
+    showToast(
+      `시너지 발동: ${roundResult.synergies.map((synergy) => synergy.label).join(', ')}`,
+      'info',
+    );
+  }
+
   await renderCombatRoundResult(roundResult, resolvingState, state.gameData?.symbols);
   const nextRun = {
     ...normalizeRunState(roundResult.playerState),
@@ -978,6 +1085,7 @@ async function handleCombatSpin() {
     turnCount: combatState.turnCount + 1,
     lastSpinResult: roundResult.spinDetail,
     logs: createLogBuffer(combatState.logs, roundResult.events),
+    isAwaitingSpinCommit: false,
     isResolving: false,
   };
   nextRun.combatContext = buildCombatContext(combatState.enemy?.id, nextCombatState);
@@ -1049,6 +1157,81 @@ async function handleCombatSpin() {
   enterStoryNode(destinationNodeId, completedRun, {
     screen: roundResult.result === 'win' ? AppState.STORY : AppState.SURVIVAL_CHECK,
   });
+}
+
+async function handleCombatReroll() {
+  const state = getState();
+  const combatState = state.combatState;
+  const currentRun = normalizeRunState(state.currentRun);
+  const rerollCost = Math.max(0, Number(state.gameData?.config?.rerollCost || 0));
+
+  if (!combatState || combatState.isResolving || !combatState.isAwaitingSpinCommit) {
+    return;
+  }
+
+  if (currentRun.gold < rerollCost) {
+    showToast('골드가 부족합니다.', 'info');
+    return;
+  }
+
+  playSFX('spin');
+  const nextRun = {
+    ...currentRun,
+    gold: currentRun.gold - rerollCost,
+  };
+  const nextCombatState = {
+    ...combatState,
+    lastSpinResult: createCombatSpinPreview(nextRun, state.gameData),
+    isAwaitingSpinCommit: true,
+    isResolving: false,
+  };
+  nextRun.combatContext = buildCombatContext(combatState.enemy?.id, nextCombatState);
+
+  setState({
+    currentRun: nextRun,
+    combatState: nextCombatState,
+  });
+  renderCurrentCombatScreen();
+  showToast(`리롤 완료 · ${rerollCost}G 사용`, 'success');
+  await persistRun(nextRun, {
+    showSuccessToast: false,
+    errorMessage: '리롤 상태 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+  });
+}
+
+async function handleCombatSpin() {
+  const state = getState();
+  const combatState = state.combatState;
+  const currentRun = normalizeRunState(state.currentRun);
+
+  if (!combatState || combatState.isResolving) {
+    return;
+  }
+
+  if (combatState.isAwaitingSpinCommit && combatState.lastSpinResult) {
+    await resolveCombatRound(currentRun, combatState, combatState.lastSpinResult);
+    return;
+  }
+
+  playSFX('spin');
+  const previewSpinResult = createCombatSpinPreview(currentRun, state.gameData);
+  const previewCombatState = {
+    ...combatState,
+    lastSpinResult: previewSpinResult,
+    isAwaitingSpinCommit: true,
+    isResolving: false,
+  };
+  const previewRun = {
+    ...currentRun,
+    combatContext: buildCombatContext(combatState.enemy?.id, previewCombatState),
+  };
+
+  setState({
+    currentRun: previewRun,
+    combatState: previewCombatState,
+  });
+  renderCurrentCombatScreen();
+  showToast('결과를 확인하고 확정하거나 리롤할 수 있습니다.', 'info');
 }
 
 async function finalizeEnding(options = {}) {
@@ -1223,10 +1406,40 @@ async function restoreAuthenticatedSession(authUser) {
   });
 
   try {
-    const [gameData, user] = await Promise.all([
-      loadGameData(),
-      loadUserData(authUser),
-    ]);
+    const gameData = await loadGameData();
+
+    if (taskId !== activeAuthTaskId) {
+      return;
+    }
+
+    initSoundManager(gameData?.config?.sounds || null);
+    syncSoundControls();
+    let user;
+
+    try {
+      user = await loadUserData(authUser);
+      clearLocalBackup(authUser.uid);
+    } catch (userLoadError) {
+      const backupRun = loadLocalBackup(authUser.uid);
+
+      if (!backupRun) {
+        throw userLoadError;
+      }
+
+      user = {
+        uid: authUser.uid,
+        email: authUser.email || null,
+        photoURL: authUser.photoURL || null,
+        displayName: authUser.displayName || '모험가',
+        createdAt: null,
+        totalGoldEarned: 0,
+        highestStage: Math.max(0, Number(backupRun.stage || 0)),
+        crystals: 0,
+        upgrades: {},
+        currentRun: backupRun,
+      };
+      showToast('Firestore 로드에 실패해 오프라인 백업에서 복구했습니다.', 'info');
+    }
 
     if (taskId !== activeAuthTaskId) {
       return;
@@ -1354,6 +1567,9 @@ function handleSignedOut() {
       authMessage: '구글 계정으로 로그인해 주세요.',
     },
   });
+  stopBGM();
+  initSoundManager(null);
+  renderSoundControls(null, null);
   transitionTo(AppState.AUTH);
   setAuthStatus({
     message: '구글 계정으로 로그인해 주세요.',
@@ -1403,16 +1619,32 @@ async function boot() {
     onCombatSpin: () => {
       void handleCombatSpin();
     },
+    onCombatReroll: () => {
+      void handleCombatReroll();
+    },
     onEndingPrimary: () => {
       void handleEndingPrimary();
     },
     onEndingSecondary: () => {
       void handleEndingSecondary();
     },
+    onSoundControlChange: (type, level) => {
+      setVolume(type, level);
+      if (isMuted() && Number(level) > 0) {
+        setMuted(false);
+      }
+      syncSoundControls();
+    },
+    onSoundMuteToggle: () => {
+      setMuted(!isMuted());
+      syncSoundControls();
+    },
   });
 
   transitionTo(AppState.BOOT);
   setBootStatus('Firebase 초기화 중...');
+  initSoundManager(null);
+  renderSoundControls(null, null);
 
   try {
     initFirebase();

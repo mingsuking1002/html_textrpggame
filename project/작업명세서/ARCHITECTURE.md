@@ -27,12 +27,14 @@
 |------|--------|----------|------|
 | export | `loadGameData` | `() → Promise<GameDataCache>` | GameData 7문서 병렬 로드 + deepFreeze 캐싱 |
 | export | `loadUserData` | `(authSource, authProfile?) → Promise<UserDoc>` | Users/{uid} 로드 (없으면 초기 문서 생성) |
-| export | `saveCurrentRun` | `(uid, currentRun) → Promise<void>` | currentRun 필드 Auto-save |
+| export | `saveCurrentRun` | `(uid, currentRun) → Promise<void>` | currentRun 필드 Auto-save + localStorage 백업 미러링 |
 | export | `saveUserMeta` | `(uid, meta) → Promise<void>` | 유저 메타 정보 저장 (재화/기록 등) |
 | export | `submitRanking` | `(rankingEntry) → Promise<DocRef>` | 랭킹 엔트리 추가 |
 | export | `loadTopRankings` | `(maxEntries?) → Promise<RankingEntry[]>` | 상위 랭킹 조회 |
 | internal | `deepFreeze` | `(value) → value` | 재귀 Object.freeze |
 | internal | `cloneData` | `(value) → clone` | JSON 깊은 복사 |
+| internal | `getLocalBackupKey` | `(uid) → string` | currentRun localStorage 키 생성 |
+| internal | `mirrorLocalBackup` | `(uid, currentRun) → void` | currentRun localStorage 미러 저장 |
 | internal | `normalizeAuthSource` | `(authSource, authProfile?) → AuthProfile` | Firebase User 또는 uid 문자열을 통일된 프로필로 변환 |
 | internal | `buildInitialUserDoc` | `(authProfile) → UserDoc` | 최초 등록 유저 문서 생성 (`crystals`, `upgrades` 기본값 포함) |
 | internal | `buildUserFallback` | `(authProfile) → UserDoc` | 오프라인 등 fallback 유저 문서 (`crystals`, `upgrades` 기본값 포함) |
@@ -68,13 +70,18 @@
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
-| export | `spin` | `(deck, symbolsData, options?) → SpinResult` | 룰렛 스핀 실행 |
+| export | `spin` | `(deck, symbolsData, options?) → SpinResult` | 룰렛 스핀 실행 (`typeCounts`, `synergies`, `finalTotals` 포함) |
+| export | `calculateSynergies` | `(spinEntries, synergyDefs) → SynergyResult[]` | 시너지 발동 목록 계산 |
 | export | `calculateDamage` | `(attack, defense, armorConstant) → number` | 데미지 계산 (순수 함수) |
-| export | `executeCombatRound` | `(params) → RoundResult` | 전투 1라운드 실행 (스핀→데미지→적 공격→승패) |
-| export | `createCombatState` | `(enemy, options?) → CombatState` | 전투 상태 초기화 |
+| export | `executeCombatRound` | `(params) → RoundResult` | 전투 1라운드 실행 (스핀/preview 확정→데미지→적 공격→승패) |
+| export | `createCombatState` | `(enemy, options?) → CombatState` | 전투 상태 초기화 (`isAwaitingSpinCommit` 포함) |
 | export | `buildCombatEnemy` | `(monstersData, monsterId) → CombatEnemy` | 몬스터 데이터로 적 생성 |
 | internal | `addSymbolToDeck` | `(deck, symbolId) → DeckResult` | 덱에 기물 추가 |
 | internal | `applyMonsterRewards` | `(enemy, playerState, randomFn?) → RewardResult` | 몬스터 처치 보상 적용 |
+| internal | `createBonusTotals` | `() → BonusTotals` | 시너지 보너스 합계 기본값 생성 |
+| internal | `calculateTypeCounts` | `(entries) → Record<string, number>` | 스핀 결과 타입 카운트 계산 |
+| internal | `enhanceSpinDetail` | `(spinDetail, synergyDefs?) → SpinResult` | 시너지/최종 합계를 붙인 스핀 결과 생성 |
+| internal | `normalizeProvidedSpinDetail` | `(spinDetail, symbolsData, synergyDefs?) → SpinResult` | 저장/preview 스핀 결과 정규화 |
 | internal | `cloneData` | `(value) → clone` | JSON 깊은 복사 |
 | internal | `toFiniteNumber` | `(value, fallback?) → number` | 안전한 숫자 변환 |
 | internal | `clamp` | `(value, min, max) → number` | 범위 제한 |
@@ -127,12 +134,14 @@
 | export | `renderScreen` | `(screenId) → void` | 화면 전환 (show/hide) |
 | export | `setBootStatus` | `(message, options?) → void` | 부트 화면 상태 표시 |
 | export | `setAuthStatus` | `(options) → void` | 인증 화면 상태 표시 |
+| export | `renderSoundControls` | `(bgmVol, sfxVol, onChange?) → void` | 전역 사운드 컨트롤 UI 갱신 |
 | export | `renderLobby` | `(user, currentRun?, options?) → void` | 로비 화면 렌더 (결정/강화 버튼 포함) |
 | export | `renderClassSelection` | `(classCards, options?) → void` | 직업 선택 화면 렌더 |
 | export | `renderStory` | `(renderModel, context) → void` | 스토리/상점 화면 렌더 |
 | export | `renderUpgradeShop` | `(upgradeDefs, userUpgrades, crystals, options?) → void` | 강화 상점 화면 렌더 |
+| export | `showRerollOption` | `(cost, gold, onReroll) → void` | 전투 리롤 버튼/비용 표시 |
 | export | `renderCombat` | `(combatState, currentRun, gameData) → void` | 전투 화면 렌더 (호환 래퍼) |
-| export | `renderCombatScreen` | `(combatState, currentRun, gameData) → void` | 전투 화면 전체 렌더 |
+| export | `renderCombatScreen` | `(combatState, currentRun, gameData) → void` | 전투 화면 전체 렌더 (preview/reroll UI 포함) |
 | export | `renderCombatRoundResult` | `(roundResult, combatState, symbolsData) → Promise<void>` | 전투 1라운드 연출 |
 | export | `renderCombatVictory` | `(rewardSummary, symbolsData) → void` | 전투 승리 연출 |
 | export | `renderCombatDefeat` | `(player) → void` | 전투 패배 연출 |
@@ -142,9 +151,11 @@
 | internal | `formatNumber` | `(value) → string` | 숫자 포맷 |
 | internal | `clearChildren` | `(element) → void` | 자식 노드 전부 제거 |
 | internal | `createTextElement` | `(tagName, className, text) → Element` | 텍스트 요소 생성 |
+| internal | `createIconFallback` | `(altText, className?) → Element` | 이미지 로드 실패 시 fallback 생성 |
 | internal | `createChip` | `(text, className?) → Element` | 칩(태그) 요소 생성 |
 | internal | `createStatCard` | `(label, value) → Element` | 엔딩/정산 카드 생성 |
 | internal | `countFilledDeckSlots` | `(deck) → number` | 채워진 덱 슬롯 수 (렌더용) |
+| internal | `formatPercent` | `(value) → string` | 볼륨 퍼센트 문자열 변환 |
 | internal | `wait` | `(durationMs) → Promise<void>` | 전투 연출 지연 |
 | internal | `getUpgradeEffectLabel` | `(effect) → string` | 강화 효과 요약 텍스트 생성 |
 | internal | `extractEventValue` | `(events, eventType) → number` | 이벤트 메시지에서 수치 추출 |
@@ -159,12 +170,45 @@
 
 ---
 
-## 7. `app.js` — 메인 컨트롤러
+## 7. `sound-manager.js` — BGM/SFX 제어
+
+| 구분 | 함수명 | 시그니처 | 설명 |
+|------|--------|----------|------|
+| export | `initSoundManager` | `(soundConfig?) → void` | 사운드 설정 로드 + localStorage 볼륨 복원 |
+| export | `playBGM` | `(trackId) → Promise<void>` | BGM 재생/교체 |
+| export | `stopBGM` | `() → void` | 현재 BGM 정지 |
+| export | `playSFX` | `(sfxId) → void` | 효과음 재생 |
+| export | `setVolume` | `(type, level) → void` | BGM/SFX 볼륨 저장/반영 |
+| export | `getVolume` | `(type) → number` | 현재 볼륨 조회 |
+| export | `setMuted` | `(nextMuted) → void` | 음소거 상태 저장/반영 |
+| export | `isMuted` | `() → boolean` | 음소거 여부 조회 |
+| internal | `clampVolume` | `(level, fallback) → number` | 볼륨 0~1 정규화 |
+| internal | `getStorage` | `() → Storage\|null` | localStorage 접근 래퍼 |
+| internal | `getEffectiveVolume` | `(type) → number` | 음소거 반영 최종 볼륨 계산 |
+| internal | `persistVolume` / `persistMute` | — | localStorage 저장 |
+| internal | `loadVolumeSettings` | `() → void` | localStorage에서 볼륨/음소거 복원 |
+| internal | `bindUnlockListeners` | `() → void` | 최초 유저 인터랙션 이후 오디오 허용 |
+| internal | `bindVisibilityListener` | `() → void` | 탭 숨김/복귀 시 BGM pause/resume |
+| internal | `fadeOutAudio` | `(audio) → void` | 이전 BGM 페이드 아웃 |
+| internal | `createAudio` | `(path, options?) → HTMLAudioElement\|null` | Audio 생성 |
+| internal | `applyBgmVolume` | `() → void` | 현재 BGM 볼륨 재적용 |
+
+**내부 상태:** `state` (config/currentTrackId/currentBgmAudio/volume/muted)
+
+---
+
+## 8. `app.js` — 메인 컨트롤러
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
 | (entry) | `boot` | `() → Promise<void>` | 앱 부트 (Firebase → Auth → 화면 전환) |
 | internal | `transitionTo` | `(nextScreen) → void` | 화면 전환 (setState 래퍼) |
+| internal | `getLocalBackupKey` | `(uid) → string` | currentRun localStorage 키 생성 |
+| internal | `saveLocalBackup` | `(uid, data) → void` | currentRun 오프라인 백업 저장 |
+| internal | `loadLocalBackup` | `(uid) → RunState\|null` | currentRun 오프라인 백업 로드 |
+| internal | `clearLocalBackup` | `(uid) → void` | currentRun 오프라인 백업 삭제 |
+| internal | `getBgmTrackForScreen` | `(screen) → trackId` | 화면 상태 → BGM 트랙 매핑 |
+| internal | `syncSoundControls` | `() → void` | 전역 사운드 컨트롤 UI 동기화 |
 | internal | `renderLobbyState` | `() → void` | 현재 상태 기반 로비 렌더 |
 | internal | `formatRewardToast` | `(encounter, rewardSummary, symbolsData) → string` | 보상 토스트 메시지 생성 |
 | internal | `formatCombatRewards` | `(rewardSummary, symbolsData) → string` | 전투 보상 토스트 메시지 생성 |
@@ -196,6 +240,8 @@
 | internal | `renderCurrentCombatScreen` | `() → void` | 현재 combatState 재렌더 |
 | internal | `renderCurrentEndingScreen` | `() → void` | 현재 endingState 재렌더 |
 | internal | `startCombat` | `(monsterId, baseRun, options?) → boolean` | 전투 상태 생성 + COMBAT 전환 |
+| internal | `createCombatSpinPreview` | `(currentRun, gameData) → SpinResult` | 전투 preview 스핀 결과 생성 |
+| internal | `resolveCombatRound` | `(currentRun, combatState, spinDetail) → Promise<void>` | preview 확정 후 전투 라운드 해결 |
 | internal | `handleEndingNode` | `(renderModel, currentRun) → boolean` | 엔딩 노드 처리 |
 | internal | `handleDirectCombatNode` | `(renderModel, currentRun, options?) → boolean` | 직접 전투 노드 처리 |
 | internal | `enterStoryNode` | `(nodeId, baseRun, options?) → boolean` | 스토리 노드 진입 핵심 로직 |
@@ -210,7 +256,8 @@
 | internal | `handleUpgradeBack` | `() → void` | UPGRADE → LOBBY 복귀 |
 | internal | `handleStoryChoice` | `(choiceIndex) → void` | 스토리 선택지 처리 |
 | internal | `handleShopPurchase` | `(symbolId) → void` | 상점 구매 처리 |
-| internal | `handleCombatSpin` | `() → Promise<void>` | 전투 1턴 진행 |
+| internal | `handleCombatSpin` | `() → Promise<void>` | preview 스핀 생성 또는 현재 결과 확정 |
+| internal | `handleCombatReroll` | `() → Promise<void>` | 골드 소모 후 preview 리롤 |
 | internal | `finalizeEnding` | `(options?) → Promise<void>` | 정산/랭킹/메타 저장 |
 | internal | `handleEndingPrimary` | `() → Promise<void>` | 엔딩 화면 메인 버튼 처리 |
 | internal | `handleEndingSecondary` | `() → Promise<void>` | 엔딩 화면 보조 버튼 처리 |
@@ -228,6 +275,7 @@ graph LR
   ce["combat-engine.js"]
   se["story-engine.js"]
   ui["ui-renderer.js"]
+  sm["sound-manager.js"]
 
   app --> fb
   app --> db
@@ -235,7 +283,9 @@ graph LR
   app --> ce
   app --> se
   app --> ui
+  app --> sm
   db --> fb
+  ui --> sm
 ```
 
 > **규칙:** `combat-engine.js`, `story-engine.js`는 DOM/Firebase에 의존하지 않는 순수 로직 모듈입니다.  
@@ -249,3 +299,4 @@ graph LR
 |------|-----------|
 | 2026-03-09 | Phase 1~5 구현 기준으로 모듈 아키텍처 문서 동기화 |
 | 2026-03-09 | Phase 6~8 반영: 강화 상점, 전투 연출/복구, 콘텐츠 확장 기준으로 문서 갱신 |
+| 2026-03-09 | Phase 9~13 반영: 전투 리롤/시너지, 사운드, 이미지 placeholder, localStorage 백업, Firestore Rules 기준으로 문서 갱신 |

@@ -27,6 +27,14 @@ function getFilledDeck(deck) {
   return Array.isArray(deck) ? deck.filter((symbolId) => symbolId && symbolId !== 'empty') : [];
 }
 
+function createBonusTotals() {
+  return {
+    attack: 0,
+    defense: 0,
+    heal: 0,
+  };
+}
+
 function buildSpinEntry(symbolId, symbolsData) {
   const symbol = symbolsData?.[symbolId] || {};
 
@@ -37,6 +45,14 @@ function buildSpinEntry(symbolId, symbolsData) {
     value: Math.max(0, toFiniteNumber(symbol.value, 0)),
     icon: symbol.icon || '',
   };
+}
+
+function calculateTypeCounts(entries = []) {
+  return entries.reduce((accumulator, entry) => {
+    const type = entry?.type || 'empty';
+    accumulator[type] = (accumulator[type] || 0) + 1;
+    return accumulator;
+  }, {});
 }
 
 function createEvent(type, message, extra = {}) {
@@ -117,6 +133,88 @@ function applyMonsterRewards(enemy, playerState, randomFn = Math.random) {
   };
 }
 
+function enhanceSpinDetail(spinDetail, synergyDefs = []) {
+  const entries = Array.isArray(spinDetail?.entries) ? spinDetail.entries : [];
+  const typeCounts = calculateTypeCounts(entries);
+  const synergies = calculateSynergies(entries, synergyDefs);
+  const bonusTotals = synergies.reduce((accumulator, synergy) => {
+    accumulator[synergy.type] = (accumulator[synergy.type] || 0) + synergy.bonus;
+    return accumulator;
+  }, createBonusTotals());
+
+  return {
+    ...spinDetail,
+    entries,
+    symbolIds: Array.isArray(spinDetail?.symbolIds)
+      ? spinDetail.symbolIds
+      : entries.map((entry) => entry.symbolId),
+    spinCount: Math.max(0, toFiniteNumber(spinDetail?.spinCount, entries.length)),
+    totalValue: Math.max(0, toFiniteNumber(spinDetail?.totalValue, 0)),
+    attackTotal: Math.max(0, toFiniteNumber(spinDetail?.attackTotal, 0)),
+    healTotal: Math.max(0, toFiniteNumber(spinDetail?.healTotal, 0)),
+    defenseTotal: Math.max(0, toFiniteNumber(spinDetail?.defenseTotal, 0)),
+    typeCounts,
+    synergies,
+    bonusTotals,
+    finalTotals: {
+      attack: Math.max(0, toFiniteNumber(spinDetail?.attackTotal, 0) + bonusTotals.attack),
+      defense: Math.max(0, toFiniteNumber(spinDetail?.defenseTotal, 0) + bonusTotals.defense),
+      heal: Math.max(0, toFiniteNumber(spinDetail?.healTotal, 0) + bonusTotals.heal),
+    },
+  };
+}
+
+function normalizeProvidedSpinDetail(spinDetail, symbolsData = {}, synergyDefs = []) {
+  const entries = Array.isArray(spinDetail?.entries)
+    ? spinDetail.entries.map((entry) => buildSpinEntry(entry?.symbolId || entry, symbolsData))
+    : [];
+
+  return enhanceSpinDetail({
+    entries,
+    symbolIds: entries.map((entry) => entry.symbolId),
+    spinCount: entries.length,
+    totalValue: entries.reduce((sum, entry) => sum + entry.value, 0),
+    attackTotal: entries
+      .filter((entry) => entry.type === 'attack')
+      .reduce((sum, entry) => sum + entry.value, 0),
+    healTotal: entries
+      .filter((entry) => entry.type === 'heal')
+      .reduce((sum, entry) => sum + entry.value, 0),
+    defenseTotal: entries
+      .filter((entry) => entry.type === 'defense')
+      .reduce((sum, entry) => sum + entry.value, 0),
+  }, synergyDefs);
+}
+
+export function calculateSynergies(spinEntries, synergyDefs) {
+  if (!Array.isArray(synergyDefs) || synergyDefs.length === 0) {
+    return [];
+  }
+
+  const typeCounts = calculateTypeCounts(spinEntries);
+
+  return synergyDefs.reduce((accumulator, rawDef) => {
+    const type = rawDef?.type || '';
+    const count = Math.max(0, toFiniteNumber(typeCounts[type], 0));
+    const minCount = Math.max(1, toFiniteNumber(rawDef?.minCount, 2));
+    const bonusPerExtra = Math.max(0, toFiniteNumber(rawDef?.bonusPerExtra, 0));
+
+    if (!type || count < minCount) {
+      return accumulator;
+    }
+
+    accumulator.push({
+      type,
+      minCount,
+      bonusPerExtra,
+      label: rawDef?.label || `${type} 시너지`,
+      count,
+      bonus: bonusPerExtra * (count - minCount + 1),
+    });
+    return accumulator;
+  }, []);
+}
+
 export function buildCombatEnemy(monstersData, monsterId) {
   const monster = monstersData?.[monsterId];
 
@@ -147,6 +245,7 @@ export function createCombatState(enemy, options = {}) {
     turnCount: Math.max(0, toFiniteNumber(options.turnCount, 0)),
     logs: restoredLogs,
     lastSpinResult: options.lastSpinResult ? cloneData(options.lastSpinResult) : null,
+    isAwaitingSpinCommit: Boolean(options.isAwaitingSpinCommit),
     isPlayerTurn: true,
     isResolving: Boolean(options.isResolving),
     resumeNodeId: options.resumeNodeId || null,
@@ -161,7 +260,7 @@ export function createCombatState(enemy, options = {}) {
  * 룰렛 스핀 실행
  * @param {Array} deck - 가방의 기물 배열
  * @param {object} symbolsData - GameData/symbols
- * @param {object} options - { spinCount, randomFn }
+ * @param {object} options - { spinCount, randomFn, synergyDefs }
  * @returns {object} spinResult
  */
 export function spin(deck, symbolsData, options = {}) {
@@ -170,7 +269,7 @@ export function spin(deck, symbolsData, options = {}) {
   const desiredSpinCount = Math.max(1, toFiniteNumber(options.spinCount, 5));
 
   if (filledDeck.length === 0) {
-    return {
+    return enhanceSpinDetail({
       entries: [],
       symbolIds: [],
       spinCount: 0,
@@ -178,7 +277,7 @@ export function spin(deck, symbolsData, options = {}) {
       attackTotal: 0,
       healTotal: 0,
       defenseTotal: 0,
-    };
+    }, options.synergyDefs);
   }
 
   const entries = [];
@@ -188,7 +287,7 @@ export function spin(deck, symbolsData, options = {}) {
     entries.push(buildSpinEntry(filledDeck[pickIndex], symbolsData));
   }
 
-  return entries.reduce((accumulator, entry) => {
+  const baseSpinDetail = entries.reduce((accumulator, entry) => {
     accumulator.entries.push(entry);
     accumulator.symbolIds.push(entry.symbolId);
     accumulator.totalValue += entry.value;
@@ -215,6 +314,8 @@ export function spin(deck, symbolsData, options = {}) {
     healTotal: 0,
     defenseTotal: 0,
   });
+
+  return enhanceSpinDetail(baseSpinDetail, options.synergyDefs);
 }
 
 /**
@@ -243,7 +344,7 @@ export function calculateDamage(attack, defense, armorConstant) {
 
 /**
  * 전투 1라운드 실행
- * @param {object} params - { player, deck, enemy, currentEnemyHp, config, symbolsData, randomFn }
+ * @param {object} params - { player, deck, enemy, currentEnemyHp, config, symbolsData, randomFn, spinDetail }
  * @returns {object}
  */
 export function executeCombatRound(params = {}) {
@@ -251,14 +352,21 @@ export function executeCombatRound(params = {}) {
   const playerState = cloneData(params.player || {});
   const enemy = cloneData(params.enemy || {});
   const armorConstant = toFiniteNumber(params?.config?.armorConstant, 15);
-  const spinDetail = spin(
-    params.deck || playerState.deck || [],
-    params.symbolsData || {},
-    {
-      spinCount: params?.config?.spinCount,
-      randomFn,
-    },
-  );
+  const spinDetail = params.spinDetail
+    ? normalizeProvidedSpinDetail(
+      params.spinDetail,
+      params.symbolsData || {},
+      params?.config?.synergies,
+    )
+    : spin(
+      params.deck || playerState.deck || [],
+      params.symbolsData || {},
+      {
+        spinCount: params?.config?.spinCount,
+        randomFn,
+        synergyDefs: params?.config?.synergies,
+      },
+    );
   const currentEnemyHp = Math.max(0, toFiniteNumber(params.currentEnemyHp, enemy.hp));
   const events = [];
 
@@ -269,10 +377,18 @@ export function executeCombatRound(params = {}) {
   } else {
     events.push(createEvent(
       'spin_result',
-      `룰렛 결과: ${symbolSummary} | 공격 ${spinDetail.attackTotal} · 방어 ${spinDetail.defenseTotal} · 회복 ${spinDetail.healTotal}`,
+      `룰렛 결과: ${symbolSummary} | 공격 ${spinDetail.finalTotals.attack} · 방어 ${spinDetail.finalTotals.defense} · 회복 ${spinDetail.finalTotals.heal}`,
       { spinDetail },
     ));
   }
+
+  spinDetail.synergies.forEach((synergy) => {
+    events.push(createEvent(
+      'synergy',
+      `${synergy.label} 발동! ${synergy.type} +${synergy.bonus}`,
+      { synergy },
+    ));
+  });
 
   const nextPlayer = {
     ...playerState,
@@ -282,14 +398,14 @@ export function executeCombatRound(params = {}) {
     deck: Array.isArray(playerState.deck) ? [...playerState.deck] : [],
   };
 
-  const healedHp = clamp(nextPlayer.hp + spinDetail.healTotal, 0, Math.max(nextPlayer.maxHp, 0));
+  const healedHp = clamp(nextPlayer.hp + spinDetail.finalTotals.heal, 0, Math.max(nextPlayer.maxHp, 0));
   const actualHeal = Math.max(0, healedHp - nextPlayer.hp);
   if (actualHeal > 0) {
     nextPlayer.hp = healedHp;
     events.push(createEvent('player_heal', `플레이어 회복 +${actualHeal}`));
   }
 
-  const playerDamage = calculateDamage(spinDetail.attackTotal, enemy.defense, armorConstant);
+  const playerDamage = calculateDamage(spinDetail.finalTotals.attack, enemy.defense, armorConstant);
   const nextEnemyHp = Math.max(0, currentEnemyHp - playerDamage);
 
   if (playerDamage > 0) {
@@ -311,12 +427,13 @@ export function executeCombatRound(params = {}) {
       playerState: rewardResult.nextPlayer,
       currentEnemyHp: 0,
       spinDetail,
+      synergies: spinDetail.synergies,
       events,
       rewardSummary: rewardResult.rewardSummary,
     };
   }
 
-  const enemyDamage = calculateDamage(enemy.attack, spinDetail.defenseTotal, armorConstant);
+  const enemyDamage = calculateDamage(enemy.attack, spinDetail.finalTotals.defense, armorConstant);
   nextPlayer.hp = clamp(nextPlayer.hp - enemyDamage, 0, Math.max(nextPlayer.maxHp, 0));
   events.push(createEvent('enemy_attack', `${enemy.name || enemy.id || '적'}의 반격 ${enemyDamage} 피해`));
 
@@ -328,6 +445,7 @@ export function executeCombatRound(params = {}) {
       playerState: nextPlayer,
       currentEnemyHp: nextEnemyHp,
       spinDetail,
+      synergies: spinDetail.synergies,
       events,
       rewardSummary: {
         gold: 0,
@@ -348,6 +466,7 @@ export function executeCombatRound(params = {}) {
     playerState: nextPlayer,
     currentEnemyHp: nextEnemyHp,
     spinDetail,
+    synergies: spinDetail.synergies,
     events,
     rewardSummary: {
       gold: 0,

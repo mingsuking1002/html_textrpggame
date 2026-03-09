@@ -62,6 +62,7 @@ function normalizeCombatContext(combatContext = null) {
     turnCount: Math.max(0, toFiniteNumber(combatContext.turnCount, 0)),
     logs: Array.isArray(combatContext.logs) ? combatContext.logs.slice(-500) : [],
     lastSpinResult: combatContext.lastSpinResult ? cloneJsonCompatible(combatContext.lastSpinResult) : null,
+    isAwaitingSpinCommit: Boolean(combatContext.isAwaitingSpinCommit),
     resumeNodeId: combatContext.resumeNodeId || null,
     restoreNodeId: combatContext.restoreNodeId || combatContext.resumeNodeId || null,
     victoryNodeId: combatContext.victoryNodeId || null,

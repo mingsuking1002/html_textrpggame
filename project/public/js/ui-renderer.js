@@ -4,6 +4,8 @@
  * DOM 렌더링 담당
  */
 
+import { isMuted, playSFX } from './sound-manager.js';
+
 const LOG_LIMIT = 500;
 const TOAST_LIMIT = 4;
 const TOAST_DURATION_MS = 3800;
@@ -83,9 +85,17 @@ function getElements() {
     combatDeckCount: document.getElementById('combat-deck-count'),
     combatDeckGrid: document.getElementById('combat-deck-grid'),
     combatSpinButton: document.getElementById('btn-combat-spin'),
+    combatRerollButton: document.getElementById('btn-combat-reroll'),
     combatSpinStatus: document.getElementById('combat-spin-status'),
+    combatRerollStatus: document.getElementById('combat-reroll-status'),
     combatSpinResult: document.getElementById('combat-spin-result'),
     combatLog: document.getElementById('combat-log'),
+    soundControls: document.getElementById('sound-controls'),
+    soundBgmVolume: document.getElementById('sound-bgm-volume'),
+    soundSfxVolume: document.getElementById('sound-sfx-volume'),
+    soundBgmValue: document.getElementById('sound-bgm-value'),
+    soundSfxValue: document.getElementById('sound-sfx-value'),
+    soundMuteButton: document.getElementById('btn-sound-mute'),
     endingKicker: document.getElementById('ending-kicker'),
     endingTitle: document.getElementById('ending-title'),
     endingText: document.getElementById('ending-text'),
@@ -107,6 +117,10 @@ function formatNumber(value) {
   return new Intl.NumberFormat('ko-KR').format(Number.isFinite(Number(value)) ? Number(value) : 0);
 }
 
+function formatPercent(value) {
+  return `${Math.round((Number.isFinite(Number(value)) ? Number(value) : 0) * 100)}%`;
+}
+
 function clearChildren(element) {
   while (element.firstChild) {
     element.removeChild(element.firstChild);
@@ -120,6 +134,12 @@ function createTextElement(tagName, className, text) {
   }
   element.textContent = text;
   return element;
+}
+
+function createIconFallback(altText, className = 'entity-icon') {
+  const safeAltText = typeof altText === 'string' ? altText : '?';
+  const label = safeAltText.replace(/\s+/g, '').slice(0, 2) || '?';
+  return createTextElement('span', `${className} icon-fallback`, label);
 }
 
 function createChip(text, className = 'chip') {
@@ -231,11 +251,26 @@ function appendSpinSummary(spinDetail) {
     return;
   }
 
+  const summaryParts = [
+    `공격 ${formatNumber(spinDetail?.finalTotals?.attack ?? spinDetail?.attackTotal)}`,
+    `방어 ${formatNumber(spinDetail?.finalTotals?.defense ?? spinDetail?.defenseTotal)}`,
+    `회복 ${formatNumber(spinDetail?.finalTotals?.heal ?? spinDetail?.healTotal)}`,
+  ];
+
   dom.combatSpinResult.append(createTextElement(
     'p',
     'entity-subtle spin-summary',
-    `공격 ${formatNumber(spinDetail.attackTotal)} · 방어 ${formatNumber(spinDetail.defenseTotal)} · 회복 ${formatNumber(spinDetail.healTotal)}`,
+    summaryParts.join(' · '),
   ));
+
+  if (Array.isArray(spinDetail?.synergies) && spinDetail.synergies.length > 0) {
+    const synergyRow = document.createElement('div');
+    synergyRow.className = 'chip-list';
+    spinDetail.synergies.forEach((synergy) => {
+      synergyRow.append(createChip(`${synergy.label} +${formatNumber(synergy.bonus)}`, 'chip chip-accent'));
+    });
+    dom.combatSpinResult.append(synergyRow);
+  }
 }
 
 function renderCombatLogEntries(logs) {
@@ -259,7 +294,7 @@ export function createIcon(iconPath, altText, className = 'entity-icon') {
   const safeAltText = typeof altText === 'string' ? altText : '?';
 
   if (!iconPath) {
-    return createTextElement('span', `${className} icon-fallback`, safeAltText.slice(0, 1) || '?');
+    return createIconFallback(safeAltText, className);
   }
 
   const img = document.createElement('img');
@@ -267,6 +302,9 @@ export function createIcon(iconPath, altText, className = 'entity-icon') {
   img.src = iconPath;
   img.alt = safeAltText;
   img.loading = 'lazy';
+  img.addEventListener('error', () => {
+    img.replaceWith(createIconFallback(safeAltText, className));
+  }, { once: true });
   return img;
 }
 
@@ -282,8 +320,16 @@ export function bindUIActions(handlers) {
   dom.upgradeBackButton.onclick = handlers.onUpgradeBack || null;
   dom.bootRetryButton.onclick = handlers.onBootRetry || null;
   dom.combatSpinButton.onclick = handlers.onCombatSpin || null;
+  dom.combatRerollButton.onclick = handlers.onCombatReroll || null;
   dom.endingPrimaryButton.onclick = handlers.onEndingPrimary || null;
   dom.endingSecondaryButton.onclick = handlers.onEndingSecondary || null;
+  dom.soundMuteButton.onclick = handlers.onSoundMuteToggle || null;
+  dom.soundBgmVolume.oninput = (event) => {
+    handlers.onSoundControlChange?.('bgm', Number(event.target.value));
+  };
+  dom.soundSfxVolume.oninput = (event) => {
+    handlers.onSoundControlChange?.('sfx', Number(event.target.value));
+  };
 }
 
 export function renderScreen(screenId) {
@@ -328,6 +374,27 @@ export function setAuthStatus(options) {
   dom.googleLoginButton.disabled = loginDisabled;
   dom.authRetryButton.hidden = !showRetry;
   dom.authRetryButton.disabled = isBusy;
+}
+
+export function renderSoundControls(bgmVol, sfxVol, onChange = null) {
+  const dom = getElements();
+
+  if (typeof onChange === 'function') {
+    uiHandlers.onSoundControlChange = onChange;
+  }
+
+  const isEnabled = Number.isFinite(Number(bgmVol)) && Number.isFinite(Number(sfxVol));
+
+  dom.soundControls.hidden = !isEnabled;
+  if (!isEnabled) {
+    return;
+  }
+
+  dom.soundBgmVolume.value = String(Math.max(0, Math.min(1, Number(bgmVol))));
+  dom.soundSfxVolume.value = String(Math.max(0, Math.min(1, Number(sfxVol))));
+  dom.soundBgmValue.textContent = formatPercent(bgmVol);
+  dom.soundSfxValue.textContent = formatPercent(sfxVol);
+  dom.soundMuteButton.textContent = isMuted() ? '음소거 해제' : '음소거';
 }
 
 export function renderLobby(user, currentRun = null, options = {}) {
@@ -575,6 +642,21 @@ export function updateEnemyHpBar(currentHp, maxHp) {
   setEnemyHpBar(currentHp, maxHp, { shake: true });
 }
 
+export function showRerollOption(cost, gold, onReroll) {
+  const dom = getElements();
+  const safeCost = Math.max(0, Number(cost || 0));
+  const safeGold = Math.max(0, Number(gold || 0));
+  const canAfford = safeGold >= safeCost;
+
+  dom.combatRerollButton.hidden = false;
+  dom.combatRerollButton.disabled = !canAfford;
+  dom.combatRerollButton.onclick = onReroll || uiHandlers.onCombatReroll || null;
+  dom.combatRerollStatus.hidden = false;
+  dom.combatRerollStatus.textContent = canAfford
+    ? `리롤 비용 ${formatNumber(safeCost)}G · 현재 골드 ${formatNumber(safeGold)}`
+    : `리롤 비용 ${formatNumber(safeCost)}G · 골드가 부족합니다.`;
+}
+
 export function renderCombatScreen(combatState, currentRun, gameData) {
   const dom = getElements();
   const enemy = combatState?.enemy || null;
@@ -627,9 +709,23 @@ export function renderCombatScreen(combatState, currentRun, gameData) {
   dom.combatSpinButton.disabled = Boolean(combatState?.isResolving)
     || currentEnemyHp <= 0
     || Number(currentRun?.hp || 0) <= 0;
+  dom.combatSpinButton.textContent = combatState?.isAwaitingSpinCommit
+    ? '결과 확정'
+    : '🎰 룰렛 스핀';
   dom.combatSpinStatus.textContent = combatState?.isResolving
     ? '룰렛이 회전합니다...'
-    : '스핀 버튼으로 다음 턴을 진행합니다.';
+    : (combatState?.isAwaitingSpinCommit
+      ? '결과를 확인했습니다. 확정하거나 리롤할 수 있습니다.'
+      : '스핀 버튼으로 다음 턴을 진행합니다.');
+
+  if (combatState?.isAwaitingSpinCommit && !combatState?.isResolving) {
+    showRerollOption(gameData?.config?.rerollCost, currentRun?.gold, uiHandlers.onCombatReroll);
+  } else {
+    dom.combatRerollButton.hidden = true;
+    dom.combatRerollButton.disabled = true;
+    dom.combatRerollStatus.hidden = true;
+    dom.combatRerollStatus.textContent = '';
+  }
 
   renderCombatLogEntries(Array.isArray(combatState?.logs) ? combatState.logs.slice(-LOG_LIMIT) : []);
   removeDamageNumbers(dom.combatEnemyShell);
@@ -699,6 +795,7 @@ export async function renderCombatRoundResult(roundResult, combatState, symbolsD
 
   if (playerHeal > 0) {
     dom.combatSpinStatus.textContent = '회복 효과가 발동했습니다.';
+    playSFX('heal');
     animateDamageNumber(dom.combatPlayerShell, playerHeal, 'heal');
     updatePlayerHud(roundResult?.playerState);
     await wait(COMBAT_ANIMATION_STEP_MS);
@@ -706,6 +803,7 @@ export async function renderCombatRoundResult(roundResult, combatState, symbolsD
 
   if (playerDamage > 0) {
     dom.combatSpinStatus.textContent = '공격이 적중했습니다.';
+    playSFX('hit');
     animateDamageNumber(dom.combatEnemyShell, playerDamage, 'attack');
     updateEnemyHpBar(roundResult?.currentEnemyHp, enemyMaxHp);
     await wait(COMBAT_ANIMATION_STEP_MS);
@@ -734,6 +832,7 @@ export function renderCombatVictory(rewardSummary, symbolsData) {
   const fragment = document.createDocumentFragment();
   const addedSymbols = Array.isArray(rewardSummary?.addedSymbols) ? rewardSummary.addedSymbols : [];
 
+  playSFX('victory');
   clearChildren(dom.combatSpinResult);
   dom.combatSpinStatus.textContent = '승리! 전리품을 회수합니다.';
 
@@ -763,6 +862,7 @@ export function renderCombatVictory(rewardSummary, symbolsData) {
 export function renderCombatDefeat(player) {
   const dom = getElements();
 
+  playSFX('defeat');
   clearChildren(dom.combatSpinResult);
   dom.combatSpinResult.append(createTextElement('p', 'entity-subtle', '패배했습니다. 엔딩 화면으로 이동합니다.'));
   dom.combatSpinStatus.textContent = `남은 체력 ${formatNumber(player?.hp)} / ${formatNumber(player?.maxHp)}`;

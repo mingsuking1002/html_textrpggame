@@ -10,6 +10,47 @@
     "successBonus": 8,
     "rankableBonus": 4
   },
+  "synergies": [
+    {
+      "type": "attack",
+      "minCount": 2,
+      "bonusPerExtra": 3,
+      "label": "공격 시너지"
+    },
+    {
+      "type": "defense",
+      "minCount": 2,
+      "bonusPerExtra": 2,
+      "label": "방어 시너지"
+    },
+    {
+      "type": "heal",
+      "minCount": 2,
+      "bonusPerExtra": 2,
+      "label": "회복 시너지"
+    }
+  ],
+  "sounds": {
+    "bgm": {
+      "title": "/assets/sounds/bgm_title.wav",
+      "lobby": "/assets/sounds/bgm_lobby.wav",
+      "battle": "/assets/sounds/bgm_battle.wav",
+      "ending": "/assets/sounds/bgm_ending.wav"
+    },
+    "sfx": {
+      "spin": "/assets/sounds/sfx_spin.wav",
+      "hit": "/assets/sounds/sfx_hit.wav",
+      "heal": "/assets/sounds/sfx_heal.wav",
+      "victory": "/assets/sounds/sfx_victory.wav",
+      "defeat": "/assets/sounds/sfx_defeat.wav",
+      "purchase": "/assets/sounds/sfx_purchase.wav",
+      "click": "/assets/sounds/sfx_click.wav"
+    },
+    "defaultVolume": {
+      "bgm": 0.45,
+      "sfx": 0.7
+    }
+  },
   "upgrades": {
     "upgrade_hp": {
       "name": "생명력 강화",

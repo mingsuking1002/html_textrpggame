@@ -489,6 +489,44 @@
       color: var(--text-main);
     }
 
+    .sound-controls {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 30;
+      min-width: 240px;
+      padding: 14px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.92);
+      box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
+      backdrop-filter: blur(14px);
+    }
+
+    .sound-row {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .sound-row:first-of-type {
+      margin-top: 0;
+    }
+
+    .sound-range {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .sound-value {
+      min-width: 44px;
+      text-align: right;
+      color: var(--text-subtle);
+      font-size: 0.9rem;
+    }
+
     .spin-result-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -690,6 +728,12 @@
       .ranking-score {
         grid-column: 2;
       }
+
+      .sound-controls {
+        position: static;
+        margin: 16px auto 0;
+        width: min(100% - 24px, 900px);
+      }
     }
   </style>
   <script type="importmap">
@@ -883,8 +927,10 @@
             <p class="panel-kicker">Roulette</p>
             <div class="actions">
               <button id="btn-combat-spin" class="button-primary" type="button">🎰 룰렛 스핀</button>
+              <button id="btn-combat-reroll" class="button-secondary" type="button" hidden>리롤</button>
             </div>
             <p id="combat-spin-status" class="status-text">스핀 버튼으로 다음 턴을 진행합니다.</p>
+            <p id="combat-reroll-status" class="status-text" hidden></p>
             <div id="combat-spin-result" class="spin-result-grid"></div>
           </div>
         </div>
@@ -930,6 +976,23 @@
       </div>
     </section>
   </main>
+
+  <aside id="sound-controls" class="sound-controls" hidden>
+    <p class="panel-kicker">Sound</p>
+    <div class="sound-row">
+      <span class="entity-subtle">BGM</span>
+      <input id="sound-bgm-volume" class="sound-range" type="range" min="0" max="1" step="0.05" value="0.5">
+      <span id="sound-bgm-value" class="sound-value">50%</span>
+    </div>
+    <div class="sound-row">
+      <span class="entity-subtle">SFX</span>
+      <input id="sound-sfx-volume" class="sound-range" type="range" min="0" max="1" step="0.05" value="0.7">
+      <span id="sound-sfx-value" class="sound-value">70%</span>
+    </div>
+    <div class="actions">
+      <button id="btn-sound-mute" class="button-ghost" type="button">음소거</button>
+    </div>
+  </aside>
 
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 

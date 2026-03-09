@@ -35,7 +35,13 @@ const SCREEN_IDS = Object.freeze({
 });
 
 function getElements() {
-  if (elements) {
+  if (
+    elements
+    && elements.bootMessage
+    && elements.authStatus
+    && elements.lobbyDisplayName
+    && elements.totalGold
+  ) {
     return elements;
   }
 
@@ -335,15 +341,17 @@ export function bindUIActions(handlers) {
   dom.logoutButton.onclick = handlers.onLogout || null;
   dom.startRunButton.onclick = handlers.onStartRun || null;
   dom.upgradeButton.onclick = handlers.onUpgrade || null;
-  dom.lobbyNicknameSaveButton.onclick = () => {
-    handlers.onNicknameSave?.(dom.lobbyNicknameInput.value);
-  };
-  dom.lobbyNicknameInput.onkeydown = (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
+  if (dom.lobbyNicknameSaveButton && dom.lobbyNicknameInput) {
+    dom.lobbyNicknameSaveButton.onclick = () => {
       handlers.onNicknameSave?.(dom.lobbyNicknameInput.value);
-    }
-  };
+    };
+    dom.lobbyNicknameInput.onkeydown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handlers.onNicknameSave?.(dom.lobbyNicknameInput.value);
+      }
+    };
+  }
   dom.upgradeBackButton.onclick = handlers.onUpgradeBack || null;
   dom.bootRetryButton.onclick = handlers.onBootRetry || null;
   dom.combatSpinButton.onclick = handlers.onCombatSpin || null;
@@ -466,12 +474,23 @@ export function renderLobby(user, currentRun = null, options = {}) {
     ? options.nicknameValue
     : (user?.displayName || '');
 
+  if (!dom.lobbyDisplayName || !dom.totalGold || !dom.highestStage || !dom.crystals) {
+    console.warn('[ui-renderer] Lobby DOM is incomplete. Skip render.', dom);
+    return;
+  }
+
   dom.lobbyDisplayName.textContent = user?.displayName || '모험가';
-  dom.lobbyNicknameInput.value = nicknameValue;
-  dom.lobbyNicknameInput.disabled = isNicknameSaving;
-  dom.lobbyNicknameSaveButton.disabled = isNicknameSaving;
-  dom.lobbyNicknameSaveButton.textContent = isNicknameSaving ? '저장 중...' : '닉네임 저장';
-  dom.lobbyNicknameStatus.textContent = nicknameStatus;
+  if (dom.lobbyNicknameInput) {
+    dom.lobbyNicknameInput.value = nicknameValue;
+    dom.lobbyNicknameInput.disabled = isNicknameSaving;
+  }
+  if (dom.lobbyNicknameSaveButton) {
+    dom.lobbyNicknameSaveButton.disabled = isNicknameSaving;
+    dom.lobbyNicknameSaveButton.textContent = isNicknameSaving ? '저장 중...' : '닉네임 저장';
+  }
+  if (dom.lobbyNicknameStatus) {
+    dom.lobbyNicknameStatus.textContent = nicknameStatus;
+  }
   dom.totalGold.textContent = formatNumber(user?.totalGoldEarned);
   dom.highestStage.textContent = formatNumber(user?.highestStage);
   dom.crystals.textContent = formatNumber(user?.crystals);
@@ -482,15 +501,23 @@ export function renderLobby(user, currentRun = null, options = {}) {
   dom.startRunButton.textContent = isActiveRun ? '런 이어하기' : '게임 시작';
 
   if (isActiveRun) {
-    dom.lobbySubtitle.textContent = '이전 런이 감지되었습니다. 이어서 진행하거나 새 결과 정산 후 로비로 돌아올 수 있습니다.';
-    dom.lobbyRunStatus.textContent = `현재 위치: ${currentRun.currentNodeId || '알 수 없음'} · Stage ${formatNumber(currentRun.stage)}`;
-    dom.lobbyRunStatus.hidden = false;
+    if (dom.lobbySubtitle) {
+      dom.lobbySubtitle.textContent = '이전 런이 감지되었습니다. 이어서 진행하거나 새 결과 정산 후 로비로 돌아올 수 있습니다.';
+    }
+    if (dom.lobbyRunStatus) {
+      dom.lobbyRunStatus.textContent = `현재 위치: ${currentRun.currentNodeId || '알 수 없음'} · Stage ${formatNumber(currentRun.stage)}`;
+      dom.lobbyRunStatus.hidden = false;
+    }
     return;
   }
 
-  dom.lobbySubtitle.textContent = '게임 데이터 로드가 완료되었습니다. 직업을 선택하거나 결정을 사용해 영구 강화를 구매할 수 있습니다.';
-  dom.lobbyRunStatus.textContent = '';
-  dom.lobbyRunStatus.hidden = true;
+  if (dom.lobbySubtitle) {
+    dom.lobbySubtitle.textContent = '게임 데이터 로드가 완료되었습니다. 직업을 선택하거나 결정을 사용해 영구 강화를 구매할 수 있습니다.';
+  }
+  if (dom.lobbyRunStatus) {
+    dom.lobbyRunStatus.textContent = '';
+    dom.lobbyRunStatus.hidden = true;
+  }
 }
 
 export function renderUpgradeShop(upgradeDefs, userUpgrades = {}, crystals = 0, options = {}) {

@@ -53,7 +53,7 @@ import {
   setBootProgress,
   setBootStatus,
   showToast,
-} from './ui-renderer.js';
+} from './ui-renderer.js?v=20260309-nickguard-1';
 import {
   getVolume,
   initSoundManager,

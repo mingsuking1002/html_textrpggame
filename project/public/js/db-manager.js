@@ -134,6 +134,9 @@ function createGameDataLoadPromise(onProgress = null) {
 
   return Promise.all(
     GAME_DATA_DOC_IDS.map(async (docId) => {
+      const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
       const snapshot = await getDoc(doc(db, 'GameData', docId));
 
       if (!snapshot.exists()) {
@@ -141,7 +144,15 @@ function createGameDataLoadPromise(onProgress = null) {
       }
 
       loadedCount += 1;
-      onProgress?.(loadedCount, GAME_DATA_DOC_COUNT, docId);
+      const durationMs = (
+        (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? performance.now()
+          : Date.now()
+      ) - startedAt;
+      onProgress?.(loadedCount, GAME_DATA_DOC_COUNT, docId, {
+        durationMs,
+        fromCache: Boolean(snapshot.metadata?.fromCache),
+      });
       return [docId, snapshot.data()];
     }),
   )
@@ -176,7 +187,12 @@ export async function loadGameData() {
 export async function loadGameDataWithProgress(onProgress) {
   if (gameDataCache) {
     GAME_DATA_DOC_IDS.forEach((docId, index) => {
-      onProgress?.(index + 1, GAME_DATA_DOC_COUNT, docId);
+      onProgress?.(index + 1, GAME_DATA_DOC_COUNT, docId, {
+        durationMs: 0,
+        fromCache: true,
+        replayed: true,
+        cached: true,
+      });
     });
     return gameDataCache;
   }
@@ -189,15 +205,38 @@ export async function loadGameDataWithProgress(onProgress) {
   return gameDataPromise;
 }
 
-export async function loadUserData(authSource, authProfile = null) {
+export async function loadUserData(authSource, authProfile = null, onTrace = null) {
   const authUser = normalizeAuthSource(authSource, authProfile);
   const db = getFirestoreDb();
   const userRef = doc(db, 'Users', authUser.uid);
+  const readStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
   const snapshot = await getDoc(userRef);
+  onTrace?.('read', {
+    durationMs: (
+      (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now()
+    ) - readStartedAt,
+    fromCache: Boolean(snapshot.metadata?.fromCache),
+    exists: snapshot.exists(),
+  });
 
   if (!snapshot.exists()) {
     // TODO: Firestore Rules / server validation must restrict write access to auth.uid only.
+    const createStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
     await setDoc(userRef, buildInitialUserDoc(authUser), { merge: true });
+    onTrace?.('bootstrap-create', {
+      durationMs: (
+        (typeof performance !== 'undefined' && typeof performance.now === 'function')
+          ? performance.now()
+          : Date.now()
+      ) - createStartedAt,
+      created: true,
+    });
     return {
       uid: authUser.uid,
       email: authUser.email,

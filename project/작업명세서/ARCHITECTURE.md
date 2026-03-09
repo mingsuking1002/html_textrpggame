@@ -28,7 +28,7 @@
 | export const | `GAME_DATA_DOC_COUNT` | `number` | GameData 문서 개수 (progress 계산용) |
 | export | `loadGameData` | `() → Promise<GameDataCache>` | GameData 7문서 병렬 로드 + deepFreeze 캐싱 |
 | export | `loadGameDataWithProgress` | `(onProgress) → Promise<GameDataCache>` | GameData 병렬 로드 + 문서별 progress 콜백 |
-| export | `loadUserData` | `(authSource, authProfile?) → Promise<UserDoc>` | Users/{uid} 로드 (없으면 초기 문서 생성) |
+| export | `loadUserData` | `(authSource, authProfile?, onTrace?) → Promise<UserDoc>` | Users/{uid} 로드 (없으면 초기 문서 생성, 계측 trace 콜백 지원) |
 | export | `saveCurrentRun` | `(uid, currentRun) → Promise<void>` | currentRun 필드 Auto-save + localStorage 백업 미러링 |
 | export | `saveUserMeta` | `(uid, meta) → Promise<void>` | 유저 메타 정보 저장 (재화/기록 등) |
 | export | `submitRanking` | `(rankingEntry) → Promise<DocRef>` | 랭킹 엔트리 추가 |
@@ -37,7 +37,7 @@
 | internal | `cloneData` | `(value) → clone` | JSON 깊은 복사 |
 | internal | `getLocalBackupKey` | `(uid) → string` | currentRun localStorage 키 생성 |
 | internal | `mirrorLocalBackup` | `(uid, currentRun) → void` | currentRun localStorage 미러 저장 |
-| internal | `createGameDataLoadPromise` | `(onProgress?) → Promise<GameDataCache>` | GameData 병렬 로드 공통 구현 |
+| internal | `createGameDataLoadPromise` | `(onProgress?) → Promise<GameDataCache>` | GameData 병렬 로드 공통 구현 (문서별 duration/fromCache 메타 전달) |
 | internal | `normalizeAuthSource` | `(authSource, authProfile?) → AuthProfile` | Firebase User 또는 uid 문자열을 통일된 프로필로 변환 |
 | internal | `buildInitialUserDoc` | `(authProfile) → UserDoc` | 최초 등록 유저 문서 생성 (`crystals`, `upgrades` 기본값 포함) |
 | internal | `buildUserFallback` | `(authProfile) → UserDoc` | 오프라인 등 fallback 유저 문서 (`crystals`, `upgrades` 기본값 포함) |
@@ -214,9 +214,14 @@
 | internal | `clearLocalBackup` | `(uid) → void` | currentRun 오프라인 백업 삭제 |
 | internal | `getBgmTrackForScreen` | `(screen) → trackId` | 화면 상태 → BGM 트랙 매핑 |
 | internal | `syncSoundControls` | `() → void` | 전역 사운드 컨트롤 UI 동기화 |
+| internal | `getPerfNow` | `() → number` | 브라우저/폴백 타이머에서 현재 시각(ms) 반환 |
+| internal | `formatPerfDuration` | `(durationMs) → string` | ms 값을 로그용 문자열로 포맷 |
+| internal | `getNavigationMetrics` | `() → NavigationMetrics\|null` | Navigation Timing API에서 초기 로드 메타 추출 |
+| internal | `storePerfReport` | `(report) → void` | 마지막 성능 리포트와 히스토리를 `window.__PH_PERF_*`에 저장 |
+| internal | `createPerfSession` | `(label, context?) → PerfSession` | 단계별 시간 수집/콘솔 테이블 출력 세션 생성 |
 | internal | `updateBootProgressState` | `(current, total, label) → void` | uiState.bootProgress + 부트 바 동기화 |
 | internal | `resetBootProgressState` | `() → void` | 부트 프로그레스 초기화 |
-| internal | `loadAllDataParallel` | `(authUser) → Promise<{gameData, user}>` | GameData/UserData 병렬 로드 + progress/fallback 처리 |
+| internal | `loadAllDataParallel` | `(authUser, perfSession?) → Promise<{gameData, user}>` | GameData/UserData 병렬 로드 + progress/fallback 처리 + 계측 기록 |
 | internal | `renderLobbyState` | `() → void` | 현재 상태 기반 로비 렌더 |
 | internal | `formatRewardToast` | `(encounter, rewardSummary, symbolsData) → string` | 보상 토스트 메시지 생성 |
 | internal | `formatCombatRewards` | `(rewardSummary, symbolsData) → string` | 전투 보상 토스트 메시지 생성 |
@@ -230,7 +235,7 @@
 | internal | `handleGoogleLogin` | `() → Promise<void>` | 구글 로그인 처리 |
 | internal | `handleLogout` | `() → Promise<void>` | 로그아웃 처리 |
 | internal | `handleSignedOut` | `() → void` | 로그아웃 후 상태 정리 |
-| internal | `restoreAuthenticatedSession` | `(authUser) → Promise<void>` | 인증 세션 복구 (데이터 로드 + 런 복구) |
+| internal | `restoreAuthenticatedSession` | `(authUser, inheritedPerfSession?) → Promise<void>` | 인증 세션 복구 (데이터 로드 + 런 복구 + 계측 리포트 출력) |
 | internal | `persistRun` | `(runSnapshot, options?) → Promise<boolean>` | currentRun 즉시 저장 |
 | internal | `queueAutoSave` | `(reason, runOverride?) → Promise<boolean>` | debounce 기반 Auto-save 예약 |
 | internal | `flushQueuedAutoSave` | `() → Promise<boolean>` | 예약된 Auto-save 즉시 실행 |

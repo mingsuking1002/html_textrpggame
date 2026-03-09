@@ -61,6 +61,8 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 오프라인 상태 저장 후 재접속 시 localStorage 백업 복구가 동작하는지 확인
 - 재방문 시 Firestore 캐시 효과로 로비 진입이 빨라지는지 확인
 - BOOT progress가 `1/8 → 8/8`로 갱신되고 로비/복구 진입 후 남아있지 않는지 확인
+- 로그인 복구 후 DevTools Console에 `[perf] cold-boot ...` 또는 `[perf] auth-restore ...` 그룹이 출력되는지 확인
+- 최근 성능 리포트가 `window.__PH_PERF_LAST__`, 히스토리가 `window.__PH_PERF_HISTORY__`에 남는지 확인
 - 로비/전투/엔딩에서 BGM 교체, SFX 재생, 볼륨 슬라이더/음소거 토글 유지 여부 확인
 - 엔딩 화면에서 정산 후 `Users/{uid}.currentRun.isActive=false`, `totalGoldEarned`, `highestStage`, `crystals`가 갱신되는지 확인
 - 성공 엔딩 시 `Rankings` 컬렉션 문서 생성과 상위 10위 표시가 되는지 확인

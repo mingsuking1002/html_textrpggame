@@ -70,6 +70,8 @@ const COMBAT_BLOCKED_REASON = 'combat_in_progress';
 const LOG_LIMIT = 500;
 const COMBAT_RESULT_SETTLE_DELAY_MS = 650;
 const LOCAL_BACKUP_PREFIX = 'ph:current-run:';
+const PERF_LOG_PREFIX = '[perf]';
+const PERF_HISTORY_LIMIT = 10;
 
 let authUnsubscribe = null;
 let activeAuthTaskId = 0;
@@ -80,6 +82,168 @@ let queuedAutoSaveTimer = null;
 let queuedAutoSaveResolvers = [];
 let queuedAutoSaveRun = null;
 let activeUpgradePurchaseId = null;
+
+function getPerfNow() {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+
+  return Date.now();
+}
+
+function formatPerfDuration(durationMs) {
+  return `${Number(durationMs || 0).toFixed(1)}ms`;
+}
+
+function getNavigationMetrics() {
+  if (typeof performance === 'undefined' || typeof performance.getEntriesByType !== 'function') {
+    return null;
+  }
+
+  const [entry] = performance.getEntriesByType('navigation');
+  if (!entry) {
+    return null;
+  }
+
+  const roundMetric = (value) => Number(Number(value || 0).toFixed(1));
+
+  return {
+    type: entry.type || 'navigate',
+    domInteractiveMs: roundMetric(entry.domInteractive),
+    domContentLoadedMs: roundMetric(entry.domContentLoadedEventEnd),
+    loadEventMs: roundMetric(entry.loadEventEnd),
+    transferSize: Number(entry.transferSize || 0),
+    encodedBodySize: Number(entry.encodedBodySize || 0),
+    decodedBodySize: Number(entry.decodedBodySize || 0),
+  };
+}
+
+function storePerfReport(report) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.__PH_PERF_LAST__ = report;
+  const existingHistory = Array.isArray(window.__PH_PERF_HISTORY__)
+    ? window.__PH_PERF_HISTORY__
+    : [];
+  window.__PH_PERF_HISTORY__ = [
+    ...existingHistory.slice(-(PERF_HISTORY_LIMIT - 1)),
+    report,
+  ];
+}
+
+function createPerfSession(label, context = {}) {
+  const startedAt = getPerfNow();
+  const steps = [];
+  const activeSteps = new Map();
+  let flushed = false;
+
+  const sanitizeMeta = (meta = {}) => Object.fromEntries(
+    Object.entries(meta).filter(([, value]) => value !== undefined),
+  );
+
+  const pushStep = (stepName, durationMs, status, meta = {}) => {
+    steps.push({
+      step: stepName,
+      ms: Number(Number(durationMs || 0).toFixed(1)),
+      status,
+      ...sanitizeMeta(meta),
+    });
+  };
+
+  return {
+    startStep(stepName, meta = {}) {
+      if (flushed) {
+        return;
+      }
+
+      activeSteps.set(stepName, {
+        startedAt: getPerfNow(),
+        meta: sanitizeMeta(meta),
+      });
+    },
+    endStep(stepName, meta = {}) {
+      if (flushed) {
+        return 0;
+      }
+
+      const activeStep = activeSteps.get(stepName);
+      if (!activeStep) {
+        return 0;
+      }
+
+      activeSteps.delete(stepName);
+      const durationMs = getPerfNow() - activeStep.startedAt;
+      pushStep(stepName, durationMs, 'done', {
+        ...activeStep.meta,
+        ...sanitizeMeta(meta),
+      });
+      return durationMs;
+    },
+    recordStep(stepName, durationMs = 0, meta = {}) {
+      if (flushed) {
+        return;
+      }
+
+      pushStep(stepName, durationMs, 'recorded', meta);
+    },
+    recordPoint(stepName, meta = {}) {
+      if (flushed) {
+        return;
+      }
+
+      pushStep(stepName, 0, 'point', meta);
+    },
+    setContext(key, value) {
+      if (value === undefined) {
+        return;
+      }
+
+      context[key] = value;
+    },
+    flush(status = 'success', extra = {}) {
+      if (flushed) {
+        return null;
+      }
+
+      flushed = true;
+      const endedAt = getPerfNow();
+      activeSteps.forEach((activeStep, stepName) => {
+        pushStep(stepName, endedAt - activeStep.startedAt, 'open', activeStep.meta);
+      });
+      activeSteps.clear();
+
+      const report = {
+        label,
+        status,
+        totalMs: Number((endedAt - startedAt).toFixed(1)),
+        context: sanitizeMeta({
+          ...context,
+          ...extra,
+        }),
+        navigation: getNavigationMetrics(),
+        steps,
+        createdAt: new Date().toISOString(),
+      };
+
+      storePerfReport(report);
+      console.groupCollapsed(
+        `${PERF_LOG_PREFIX} ${label} ${status} ${formatPerfDuration(report.totalMs)}`,
+      );
+      if (report.navigation) {
+        console.log(`${PERF_LOG_PREFIX} navigation`, report.navigation);
+      }
+      console.table(report.steps);
+      if (Object.keys(report.context).length > 0) {
+        console.log(`${PERF_LOG_PREFIX} context`, report.context);
+      }
+      console.log(`${PERF_LOG_PREFIX} window.__PH_PERF_LAST__`, report);
+      console.groupEnd();
+      return report;
+    },
+  };
+}
 
 function getLocalBackupKey(uid) {
   return `${LOCAL_BACKUP_PREFIX}${uid}`;
@@ -1404,11 +1568,16 @@ async function handleEndingSecondary() {
   }
 }
 
-async function loadAllDataParallel(authUser) {
+async function loadAllDataParallel(authUser, perfSession = null) {
   const progressTotal = GAME_DATA_DOC_COUNT + 1;
   const loadedDocs = new Set();
   let isUserLoaded = false;
   let userLoadError = null;
+  const gameDataSources = {
+    memoryCacheDocs: 0,
+    firestoreCacheDocs: 0,
+    serverDocs: 0,
+  };
 
   const updateProgress = (label) => {
     const current = loadedDocs.size + (isUserLoaded ? 1 : 0);
@@ -1416,20 +1585,70 @@ async function loadAllDataParallel(authUser) {
   };
 
   updateProgress('데이터 로드를 시작합니다.');
+  perfSession?.startStep('load-game-data');
+  perfSession?.startStep('load-user-data');
 
-  const gameDataPromise = loadGameDataWithProgress((current, total, docId) => {
+  const gameDataPromise = loadGameDataWithProgress((current, total, docId, meta = {}) => {
     loadedDocs.add(docId);
+    const source = meta.replayed || meta.cached
+      ? 'memory-cache'
+      : meta.fromCache
+        ? 'firestore-cache'
+        : 'server';
+    if (source === 'memory-cache') {
+      gameDataSources.memoryCacheDocs += 1;
+    } else if (source === 'firestore-cache') {
+      gameDataSources.firestoreCacheDocs += 1;
+    } else {
+      gameDataSources.serverDocs += 1;
+    }
+    perfSession?.recordStep(`GameData/${docId}`, Number(meta.durationMs || 0), {
+      source,
+    });
     updateProgress(`GameData/${docId} 로드 완료 (${current}/${total})`);
-  });
+  })
+    .then((gameData) => {
+      perfSession?.endStep('load-game-data', {
+        docs: GAME_DATA_DOC_COUNT,
+        serverDocs: gameDataSources.serverDocs,
+        firestoreCacheDocs: gameDataSources.firestoreCacheDocs,
+        memoryCacheDocs: gameDataSources.memoryCacheDocs,
+      });
+      return gameData;
+    })
+    .catch((error) => {
+      perfSession?.endStep('load-game-data', {
+        failed: true,
+        error: error?.code || error?.message || 'unknown',
+      });
+      throw error;
+    });
 
-  const userPromise = loadUserData(authUser)
+  const userPromise = loadUserData(authUser, null, (phase, meta = {}) => {
+    perfSession?.recordStep(`Users/${authUser.uid}:${phase}`, Number(meta.durationMs || 0), {
+      source: meta.created
+        ? 'firestore-write'
+        : meta.fromCache
+          ? 'firestore-cache'
+          : 'server',
+      exists: meta.exists,
+      created: meta.created,
+    });
+  })
     .then((user) => {
       isUserLoaded = true;
       updateProgress('유저 데이터 로드 완료');
+      perfSession?.endStep('load-user-data', {
+        source: 'firestore',
+      });
       return user;
     })
     .catch((error) => {
       userLoadError = error;
+      perfSession?.endStep('load-user-data', {
+        failed: true,
+        error: error?.code || error?.message || 'unknown',
+      });
       return null;
     });
 
@@ -1449,6 +1668,12 @@ async function loadAllDataParallel(authUser) {
 
   isUserLoaded = true;
   updateBootProgressState(progressTotal, progressTotal, '오프라인 백업 복구 완료');
+  perfSession?.recordPoint('user-data-fallback', {
+    source: 'local-backup',
+    stage: Number(backupRun.stage || 0),
+    nodeId: backupRun.currentNodeId || null,
+  });
+  perfSession?.setContext('usedLocalBackup', true);
   showToast('Firestore 로드에 실패해 오프라인 백업에서 복구했습니다.', 'info');
 
   return {
@@ -1468,8 +1693,16 @@ async function loadAllDataParallel(authUser) {
   };
 }
 
-async function restoreAuthenticatedSession(authUser) {
+async function restoreAuthenticatedSession(authUser, inheritedPerfSession = null) {
   const taskId = ++activeAuthTaskId;
+  const perfSession = inheritedPerfSession || createPerfSession('auth-restore', {
+    uid: authUser.uid,
+    email: authUser.email || null,
+  });
+  perfSession.startStep('session-restore');
+  perfSession.recordPoint('auth-user-detected', {
+    uid: authUser.uid,
+  });
   retryAuthLoad = () => {
     void restoreAuthenticatedSession(authUser);
   };
@@ -1491,21 +1724,30 @@ async function restoreAuthenticatedSession(authUser) {
   });
 
   try {
-    const { gameData, user } = await loadAllDataParallel(authUser);
+    const { gameData, user } = await loadAllDataParallel(authUser, perfSession);
 
     if (taskId !== activeAuthTaskId) {
+      perfSession.flush('cancelled', {
+        reason: 'stale-auth-task',
+      });
       return;
     }
 
+    perfSession.startStep('sound-init');
     initSoundManager(gameData?.config?.sounds || null);
     syncSoundControls();
+    perfSession.endStep('sound-init');
 
     if (taskId !== activeAuthTaskId) {
+      perfSession.flush('cancelled', {
+        reason: 'stale-auth-task',
+      });
       return;
     }
 
     retryAuthLoad = null;
     const restoredRun = normalizeRunState(user.currentRun);
+    perfSession.startStep('state-hydration');
     setState({
       gameData,
       user,
@@ -1518,25 +1760,56 @@ async function restoreAuthenticatedSession(authUser) {
       },
     });
     resetBootProgressState();
+    perfSession.endStep('state-hydration', {
+      activeRun: restoredRun.isActive,
+    });
 
     if (restoredRun.isActive) {
+      perfSession.startStep('active-run-restore');
       showToast('이전 런이 감지되었습니다. 이어서 진행합니다.', 'info');
-      if (!restoreActiveRun(restoredRun)) {
+      const restored = restoreActiveRun(restoredRun);
+      perfSession.endStep('active-run-restore', {
+        restored,
+        nodeId: restoredRun.currentNodeId || null,
+        hasCombatContext: Boolean(restoredRun.combatContext),
+      });
+      if (!restored) {
+        perfSession.startStep('lobby-fallback');
         transitionTo(AppState.LOBBY);
         renderLobby(user, getState().currentRun, {
           hasUpgradeShop: hasUpgradeShop(),
         });
+        perfSession.endStep('lobby-fallback');
       }
+      perfSession.endStep('session-restore', {
+        activeRun: true,
+      });
+      perfSession.flush('success', {
+        finalScreen: getState().uiState.screen,
+        activeRun: true,
+      });
       return;
     }
 
+    perfSession.startStep('lobby-entry');
     renderLobby(user, restoredRun, {
       hasUpgradeShop: hasUpgradeShop(),
     });
     transitionTo(AppState.LOBBY);
+    perfSession.endStep('lobby-entry');
+    perfSession.endStep('session-restore', {
+      activeRun: false,
+    });
+    perfSession.flush('success', {
+      finalScreen: AppState.LOBBY,
+      activeRun: false,
+    });
     showToast('로비에 입장했습니다.', 'success');
   } catch (error) {
     if (taskId !== activeAuthTaskId) {
+      perfSession.flush('cancelled', {
+        reason: 'stale-auth-task',
+      });
       return;
     }
 
@@ -1560,6 +1833,10 @@ async function restoreAuthenticatedSession(authUser) {
       showRetry: true,
       isError: true,
       loginDisabled: true,
+    });
+    perfSession.flush('error', {
+      error: error?.code || error?.message || 'unknown',
+      finalScreen: AppState.AUTH,
     });
     showToast(getLoadErrorMessage(error), 'error');
   }
@@ -1642,6 +1919,11 @@ function handleSignedOut() {
 }
 
 async function boot() {
+  const bootPerfSession = createPerfSession('cold-boot', {
+    path: typeof window !== 'undefined' ? window.location.pathname : '/',
+  });
+  let didResolveInitialAuthState = false;
+  let handoffPerfSession = bootPerfSession;
   bindUIActions({
     onGoogleLogin: () => {
       void handleGoogleLogin();
@@ -1710,8 +1992,17 @@ async function boot() {
   renderSoundControls(null, null);
 
   try {
+    bootPerfSession.startStep('firebase-init');
     initFirebase();
+    bootPerfSession.endStep('firebase-init');
   } catch (error) {
+    bootPerfSession.endStep('firebase-init', {
+      failed: true,
+      error: error?.code || error?.message || 'unknown',
+    });
+    bootPerfSession.flush('error', {
+      finalScreen: AppState.BOOT,
+    });
     console.error('[app] Firebase initialization failed', error);
     setBootStatus('Firebase 초기화에 실패했습니다. 다시 시도해 주세요.', {
       isError: true,
@@ -1731,12 +2022,27 @@ async function boot() {
   });
 
   authUnsubscribe?.();
+  bootPerfSession.startStep('initial-auth-state');
   authUnsubscribe = onAuthChange((authUser) => {
+    if (!didResolveInitialAuthState) {
+      didResolveInitialAuthState = true;
+      bootPerfSession.endStep('initial-auth-state', {
+        authenticated: Boolean(authUser),
+      });
+    }
+
     if (authUser) {
-      void restoreAuthenticatedSession(authUser);
+      const inheritedPerfSession = handoffPerfSession;
+      handoffPerfSession = null;
+      void restoreAuthenticatedSession(authUser, inheritedPerfSession);
       return;
     }
 
+    handoffPerfSession?.flush('signed-out', {
+      finalScreen: AppState.AUTH,
+      authenticated: false,
+    });
+    handoffPerfSession = null;
     handleSignedOut();
   });
 }

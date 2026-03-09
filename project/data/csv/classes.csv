@@ -1,0 +1,3 @@
+id,name,icon,weapons
+warrior,전사,/assets/images/classes/warrior.webp,"sword,mace,hammer"
+archer,궁수,/assets/images/classes/archer.webp,"bow,crossbow"

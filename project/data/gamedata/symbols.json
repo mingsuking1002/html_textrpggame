@@ -1,0 +1,58 @@
+{
+    "sword": {
+        "name": "낡은 검",
+        "type": "attack",
+        "value": 4,
+        "rarity": 1,
+        "classTag": "sword",
+        "icon": "/assets/images/items/sword.webp"
+    },
+    "shield": {
+        "name": "나무 방패",
+        "type": "defense",
+        "value": 3,
+        "rarity": 1,
+        "classTag": "shield",
+        "icon": "/assets/images/items/shield.webp"
+    },
+    "potion": {
+        "name": "포션",
+        "type": "heal",
+        "value": 2,
+        "rarity": 2,
+        "classTag": "potion",
+        "icon": "/assets/images/items/potion.webp"
+    },
+    "mace": {
+        "name": "철퇴",
+        "type": "attack",
+        "value": 6,
+        "rarity": 2,
+        "classTag": "mace",
+        "icon": "/assets/images/items/mace.webp"
+    },
+    "hammer": {
+        "name": "전쟁 망치",
+        "type": "attack",
+        "value": 8,
+        "rarity": 3,
+        "classTag": "hammer",
+        "icon": "/assets/images/items/hammer.webp"
+    },
+    "bow": {
+        "name": "사냥꾼의 활",
+        "type": "attack",
+        "value": 5,
+        "rarity": 1,
+        "classTag": "bow",
+        "icon": "/assets/images/items/bow.webp"
+    },
+    "crossbow": {
+        "name": "석궁",
+        "type": "attack",
+        "value": 7,
+        "rarity": 2,
+        "classTag": "crossbow",
+        "icon": "/assets/images/items/crossbow.webp"
+    }
+}

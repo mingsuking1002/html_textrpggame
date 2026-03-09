@@ -1,0 +1,19 @@
+{
+    "warrior": {
+        "name": "전사",
+        "icon": "/assets/images/classes/warrior.webp",
+        "weapons": [
+            "sword",
+            "mace",
+            "hammer"
+        ]
+    },
+    "archer": {
+        "name": "궁수",
+        "icon": "/assets/images/classes/archer.webp",
+        "weapons": [
+            "bow",
+            "crossbow"
+        ]
+    }
+}

@@ -1,0 +1,7 @@
+id,name,type,description,monsters,storyNodeId,rewards_gold_min,rewards_gold_max,rewards_heal_min,rewards_heal_max,rewards_symbols,weight,cond_minStage,cond_maxStage,cond_requiredFlags
+enc_forest_ambush,숲속 매복,combat,수풀 속에서 적이 나타났다!,"slime,goblin",,,,,,10,1,3,
+enc_skeleton_tomb,해골 무덤,combat,무덤에서 해골 전사가 깨어났다!,skeleton,,,,,,8,2,5,
+enc_orc_camp,오크 야영지,combat,오크들이 야영지를 지키고 있다!,orc_warrior,,,,,,5,3,99,
+enc_merchant,떠돌이 상인,event,떠돌이 상인이 길을 막고 있다.,,node_merchant,,,,,5,1,99,
+enc_treasure,보물 상자,reward,길가에 낡은 상자가 있다.,,,10,30,,,potion:0.5,3,1,99,
+enc_healing_spring,치유의 샘,reward,맑은 샘물이 빛나고 있다. 체력이 회복될 것 같다.,,,0,0,10,20,,4,1,99,

@@ -1,0 +1,6 @@
+id,name,hp,attack,defense,expReward,goldRewardMin,goldRewardMax,lootTable,icon,tier,tags
+slime,슬라임,20,5,2,10,5,15,"potion:0.3",/assets/images/monsters/slime.webp,1,normal
+goblin,고블린,35,8,3,20,10,25,"sword:0.1|potion:0.2",/assets/images/monsters/goblin.webp,1,normal
+skeleton,스켈레톤,45,10,5,30,15,35,"shield:0.15|mace:0.1",/assets/images/monsters/skeleton.webp,2,normal
+orc_warrior,오크 전사,60,14,7,45,20,50,"hammer:0.08|potion:0.25",/assets/images/monsters/orc_warrior.webp,2,elite
+dragon,드래곤,150,25,15,100,50,150,"hammer:0.3|crossbow:0.2",/assets/images/monsters/dragon.webp,3,boss

@@ -1,0 +1,8 @@
+id,name,type,value,rarity,classTag,icon
+sword,낡은 검,attack,4,1,sword,/assets/images/items/sword.webp
+shield,나무 방패,defense,3,1,shield,/assets/images/items/shield.webp
+potion,포션,heal,2,2,potion,/assets/images/items/potion.webp
+mace,철퇴,attack,6,2,mace,/assets/images/items/mace.webp
+hammer,전쟁 망치,attack,8,3,hammer,/assets/images/items/hammer.webp
+bow,사냥꾼의 활,attack,5,1,bow,/assets/images/items/bow.webp
+crossbow,석궁,attack,7,2,crossbow,/assets/images/items/crossbow.webp

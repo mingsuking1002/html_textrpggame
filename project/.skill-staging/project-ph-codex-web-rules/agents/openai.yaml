@@ -1,0 +1,6 @@
+interface:
+  display_name: "Project PH Codex-Web Rules"
+  short_description: "Firebase 웹 RPG SPEC 구현 워크플로우"
+  default_prompt: "Use $project-ph-codex-web-rules to implement Project PH Firebase web RPG features from `작업명세서/SPEC_*.md`, follow the app/combat/story loop rules, and update SPEC status from pending to in-progress to done."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,102 @@
+{
+    "enc_forest_ambush": {
+        "name": "숲속 매복",
+        "type": "combat",
+        "description": "수풀 속에서 적이 나타났다!",
+        "monsters": [
+            "slime",
+            "goblin"
+        ],
+        "weight": 10,
+        "conditions": {
+            "minStage": 1,
+            "maxStage": 3,
+            "requiredFlags": []
+        }
+    },
+    "enc_skeleton_tomb": {
+        "name": "해골 무덤",
+        "type": "combat",
+        "description": "무덤에서 해골 전사가 깨어났다!",
+        "monsters": [
+            "skeleton"
+        ],
+        "weight": 8,
+        "conditions": {
+            "minStage": 2,
+            "maxStage": 5,
+            "requiredFlags": []
+        }
+    },
+    "enc_orc_camp": {
+        "name": "오크 야영지",
+        "type": "combat",
+        "description": "오크들이 야영지를 지키고 있다!",
+        "monsters": [
+            "orc_warrior"
+        ],
+        "weight": 5,
+        "conditions": {
+            "minStage": 3,
+            "maxStage": 99,
+            "requiredFlags": []
+        }
+    },
+    "enc_merchant": {
+        "name": "떠돌이 상인",
+        "type": "event",
+        "description": "떠돌이 상인이 길을 막고 있다.",
+        "storyNodeId": "node_merchant",
+        "weight": 5,
+        "conditions": {
+            "minStage": 1,
+            "maxStage": 99,
+            "requiredFlags": []
+        }
+    },
+    "enc_treasure": {
+        "name": "보물 상자",
+        "type": "reward",
+        "description": "길가에 낡은 상자가 있다.",
+        "rewards": {
+            "gold": [
+                10,
+                30
+            ],
+            "symbols": [
+                {
+                    "symbolId": "potion",
+                    "chance": 0.5
+                }
+            ]
+        },
+        "weight": 3,
+        "conditions": {
+            "minStage": 1,
+            "maxStage": 99,
+            "requiredFlags": []
+        }
+    },
+    "enc_healing_spring": {
+        "name": "치유의 샘",
+        "type": "reward",
+        "description": "맑은 샘물이 빛나고 있다. 체력이 회복될 것 같다.",
+        "rewards": {
+            "heal": [
+                10,
+                20
+            ],
+            "gold": [
+                0,
+                0
+            ],
+            "symbols": []
+        },
+        "weight": 4,
+        "conditions": {
+            "minStage": 1,
+            "maxStage": 99,
+            "requiredFlags": []
+        }
+    }
+}

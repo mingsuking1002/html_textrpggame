@@ -1,0 +1,181 @@
+{
+    "node_prologue": {
+        "title": "모험의 시작",
+        "text": "당신은 낡은 검 하나를 들고 마을을 떠난다. 앞에 두 갈래 길이 보인다.",
+        "type": "narrative",
+        "choices": [
+            {
+                "text": "숲길로 간다",
+                "nextNodeId": "node_forest_entry",
+                "conditions": {},
+                "effects": {
+                    "addFlag": "chose_forest"
+                }
+            },
+            {
+                "text": "해안길을 택한다",
+                "nextNodeId": "node_coast_entry",
+                "conditions": {},
+                "effects": {
+                    "addFlag": "chose_coast"
+                }
+            }
+        ],
+        "onEnter": {}
+    },
+    "node_forest_entry": {
+        "title": "어두운 숲",
+        "text": "울창한 나무 사이로 무언가의 기척이 느껴진다.",
+        "type": "encounter_trigger",
+        "encounterPool": [
+            "enc_forest_ambush",
+            "enc_treasure"
+        ],
+        "afterEncounter": "node_forest_clearing",
+        "choices": [],
+        "onEnter": {}
+    },
+    "node_forest_clearing": {
+        "title": "숲속 공터",
+        "text": "전투를 마치고 숲속 공터에 도착했다. 잠시 쉬어갈 수 있다.",
+        "type": "narrative",
+        "choices": [
+            {
+                "text": "더 깊은 숲으로 진행한다",
+                "nextNodeId": "node_deep_forest",
+                "conditions": {},
+                "effects": {}
+            },
+            {
+                "text": "마을로 돌아간다",
+                "nextNodeId": "node_village_return",
+                "conditions": {},
+                "effects": {}
+            }
+        ],
+        "onEnter": {
+            "heal": 5
+        }
+    },
+    "node_coast_entry": {
+        "title": "해안 절벽",
+        "text": "파도 소리가 들린다. 해안가에 상인이 보인다.",
+        "type": "narrative",
+        "choices": [
+            {
+                "text": "상인에게 다가간다",
+                "nextNodeId": "node_merchant",
+                "conditions": {},
+                "effects": {}
+            },
+            {
+                "text": "절벽 위 동굴을 탐험한다",
+                "nextNodeId": "node_cave_entry",
+                "conditions": {},
+                "effects": {
+                    "addFlag": "explored_cave"
+                }
+            }
+        ],
+        "onEnter": {}
+    },
+    "node_merchant": {
+        "title": "떠돌이 상인",
+        "text": "상인이 진귀한 물건들을 내보인다.",
+        "type": "shop",
+        "shopItems": [
+            {
+                "symbolId": "potion",
+                "cost": 20
+            },
+            {
+                "symbolId": "shield",
+                "cost": 35
+            },
+            {
+                "symbolId": "crossbow",
+                "cost": 50
+            }
+        ],
+        "choices": [
+            {
+                "text": "떠난다",
+                "nextNodeId": "$return",
+                "conditions": {},
+                "effects": {}
+            }
+        ],
+        "onEnter": {}
+    },
+    "node_deep_forest": {
+        "title": "깊은 숲",
+        "text": "숲이 점점 어두워진다. 강력한 존재의 기운이 느껴진다.",
+        "type": "encounter_trigger",
+        "encounterPool": [
+            "enc_skeleton_tomb",
+            "enc_orc_camp",
+            "enc_healing_spring"
+        ],
+        "afterEncounter": "node_dragon_gate",
+        "choices": [],
+        "onEnter": {}
+    },
+    "node_dragon_gate": {
+        "title": "용의 관문",
+        "text": "거대한 동굴 입구 앞에 섰다. 안에서 열기가 뿜어져 나온다.",
+        "type": "narrative",
+        "choices": [
+            {
+                "text": "드래곤에게 도전한다",
+                "nextNodeId": "node_dragon_battle",
+                "conditions": {},
+                "effects": {}
+            },
+            {
+                "text": "돌아선다 (상인의 길)",
+                "nextNodeId": "node_ending_merchant",
+                "conditions": {
+                    "hasFlag": "merchant_route"
+                },
+                "effects": {}
+            }
+        ],
+        "onEnter": {}
+    },
+    "node_dragon_battle": {
+        "title": "최종 전투: 드래곤",
+        "text": "드래곤이 포효하며 다가온다!",
+        "type": "combat",
+        "combatMonster": "dragon",
+        "onWin": "node_ending_dragon_slayer",
+        "onLose": "node_ending_death",
+        "choices": [],
+        "onEnter": {}
+    },
+    "node_ending_dragon_slayer": {
+        "title": "엔딩: 용을 무찌른 자",
+        "text": "",
+        "type": "ending",
+        "endingId": "ending_dragon_slayer",
+        "choices": [],
+        "onEnter": {
+            "addFlag": "defeated_dragon"
+        }
+    },
+    "node_ending_merchant": {
+        "title": "엔딩: 상인의 왕",
+        "text": "",
+        "type": "ending",
+        "endingId": "ending_merchant_king",
+        "choices": [],
+        "onEnter": {}
+    },
+    "node_ending_death": {
+        "title": "엔딩: 여정의 끝",
+        "text": "",
+        "type": "ending",
+        "endingId": "ending_death",
+        "choices": [],
+        "onEnter": {}
+    }
+}

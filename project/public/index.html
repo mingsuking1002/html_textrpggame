@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PachinkoHero - 룰렛 기반 Firebase 웹 RPG">
+  <title>PachinkoHero - 파친코 히어로</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-top: #1f2937;
+      --bg-bottom: #020617;
+      --panel: rgba(15, 23, 42, 0.9);
+      --panel-border: rgba(148, 163, 184, 0.22);
+      --text-main: #e2e8f0;
+      --text-subtle: #94a3b8;
+      --accent: #f59e0b;
+      --accent-strong: #f97316;
+      --danger: #f87171;
+      --success: #34d399;
+      --shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
+      font-family: "Pretendard", "Noto Sans KR", sans-serif;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at top, rgba(249, 115, 22, 0.16), transparent 30%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.9rem 1.35rem;
+      cursor: pointer;
+      transition: transform 160ms ease, opacity 160ms ease, background-color 160ms ease;
+    }
+
+    button:hover:enabled {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      transform: none;
+    }
+
+    .app-shell {
+      width: min(100%, 1120px);
+      margin: 0 auto;
+      padding: 24px 16px 72px;
+    }
+
+    .screen {
+      display: none;
+      min-height: calc(100vh - 48px);
+      align-items: center;
+      justify-content: center;
+      padding: 24px 0;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    .panel {
+      width: min(100%, 720px);
+      padding: 32px;
+      border: 1px solid var(--panel-border);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -0.04em;
+    }
+
+    .panel-kicker {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 0.875rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .panel-copy {
+      margin: 14px 0 0;
+      color: var(--text-subtle);
+      line-height: 1.6;
+      font-size: 1rem;
+    }
+
+    .status-text {
+      min-height: 1.5rem;
+      margin: 24px 0 0;
+      color: var(--text-main);
+      font-size: 0.98rem;
+    }
+
+    .status-text.error {
+      color: var(--danger);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #111827;
+      font-weight: 800;
+    }
+
+    .button-secondary {
+      background: rgba(30, 41, 59, 0.9);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .button-ghost {
+      background: transparent;
+      color: var(--text-subtle);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .lobby-layout {
+      display: grid;
+      gap: 20px;
+    }
+
+    .lobby-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .lobby-name {
+      margin: 10px 0 0;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .lobby-subtitle {
+      margin: 12px 0 0;
+      color: var(--text-subtle);
+      line-height: 1.5;
+    }
+
+    .lobby-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(51, 65, 85, 0.55);
+      color: var(--text-subtle);
+      font-size: 0.9rem;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .meta-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .meta-label {
+      display: block;
+      color: var(--text-subtle);
+      font-size: 0.875rem;
+    }
+
+    .meta-value {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .placeholder-block {
+      width: min(100%, 720px);
+      padding: 24px;
+      border-radius: 24px;
+      border: 1px dashed rgba(148, 163, 184, 0.26);
+      background: rgba(15, 23, 42, 0.6);
+      color: var(--text-subtle);
+      text-align: center;
+    }
+
+    #toast-container {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      gap: 10px;
+      z-index: 999;
+      width: min(320px, calc(100vw - 32px));
+    }
+
+    .toast {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.95);
+      box-shadow: var(--shadow);
+      color: var(--text-main);
+    }
+
+    .toast.info {
+      border-color: rgba(245, 158, 11, 0.28);
+    }
+
+    .toast.error {
+      border-color: rgba(248, 113, 113, 0.35);
+    }
+
+    .toast.success {
+      border-color: rgba(52, 211, 153, 0.32);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 720px) {
+      .panel {
+        padding: 24px 20px;
+      }
+
+      .screen {
+        min-height: auto;
+      }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <section id="screen-boot" class="screen active" aria-labelledby="boot-title">
+      <div class="panel">
+        <p class="panel-kicker">System Boot</p>
+        <h1 id="boot-title" class="panel-title">파친코 히어로</h1>
+        <p class="panel-copy">Firebase 인증과 게임 데이터를 준비하는 중입니다.</p>
+        <p id="boot-message" class="status-text" aria-live="polite">로딩 중...</p>
+        <p id="boot-error" class="status-text error" aria-live="assertive" hidden></p>
+        <div class="actions">
+          <button id="btn-boot-retry" class="button-secondary" type="button" hidden>다시 시도</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-auth" class="screen" aria-labelledby="auth-title">
+      <div class="panel">
+        <p class="panel-kicker">Entry Gate</p>
+        <h1 id="auth-title" class="panel-title">파친코 히어로</h1>
+        <p class="panel-copy">구글 계정으로 로그인하면 GameData를 불러오고 로비로 진입합니다.</p>
+        <p id="auth-status" class="status-text" aria-live="polite">구글 계정으로 로그인해 주세요.</p>
+        <div class="actions">
+          <button id="btn-google-login" class="button-primary" type="button">구글로 시작하기</button>
+          <button id="btn-auth-retry" class="button-secondary" type="button" hidden>다시 시도</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-lobby" class="screen" aria-labelledby="lobby-title">
+      <div class="panel lobby-layout">
+        <div class="lobby-header">
+          <div>
+            <p class="panel-kicker">Lobby</p>
+            <h2 id="lobby-title" class="panel-title">원정 준비</h2>
+            <p id="lobby-display-name" class="lobby-name">이름 없음</p>
+            <p class="lobby-subtitle">게임 데이터 로드가 완료되었습니다. 다음 Phase에서 런 시작 흐름이 연결됩니다.</p>
+          </div>
+          <div class="lobby-badge" aria-live="polite">
+            <span>Auth UID</span>
+            <span id="lobby-user-id">-</span>
+          </div>
+        </div>
+        <div class="meta-grid" aria-label="플레이어 메타 정보">
+          <article class="meta-card">
+            <span class="meta-label">누적 골드</span>
+            <strong id="meta-total-gold" class="meta-value">0</strong>
+          </article>
+          <article class="meta-card">
+            <span class="meta-label">최고 스테이지</span>
+            <strong id="meta-highest-stage" class="meta-value">0</strong>
+          </article>
+          <article class="meta-card">
+            <span class="meta-label">보유 결정</span>
+            <strong id="meta-crystals" class="meta-value">0</strong>
+          </article>
+        </div>
+        <div class="actions">
+          <button id="btn-start-run" class="button-primary" type="button">게임 시작</button>
+          <button id="btn-upgrade" class="button-secondary" type="button" disabled>강화(결정)</button>
+          <button id="btn-logout" class="button-ghost" type="button">로그아웃</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-class-select" class="screen" aria-labelledby="class-select-title">
+      <div class="placeholder-block">
+        <h2 id="class-select-title">직업 선택은 Phase 3에서 연결됩니다.</h2>
+        <div id="class-cards"></div>
+      </div>
+    </section>
+
+    <section id="screen-story" class="screen" aria-labelledby="story-title">
+      <div class="placeholder-block">
+        <h2 id="story-title">스토리 루프는 Phase 3 이후 연결됩니다.</h2>
+        <p id="story-text"></p>
+        <div id="story-choices"></div>
+      </div>
+    </section>
+
+    <section id="screen-combat" class="screen" aria-labelledby="combat-title">
+      <div class="placeholder-block">
+        <h2 id="combat-title">전투 루프는 아직 구현되지 않았습니다.</h2>
+        <div id="combat-hud"></div>
+        <div id="roulette-area"></div>
+        <div id="combat-log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="screen-ending" class="screen" aria-labelledby="ending-title">
+      <div class="placeholder-block">
+        <h2 id="ending-title">엔딩 화면은 Phase 5에서 연결됩니다.</h2>
+        <p id="ending-text"></p>
+        <div id="ending-rewards"></div>
+        <button id="btn-return-lobby" class="button-secondary" type="button">로비로 돌아가기</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module">
+    const bootMessageEl = document.getElementById('boot-message');
+    const bootErrorEl = document.getElementById('boot-error');
+    const bootRetryButton = document.getElementById('btn-boot-retry');
+
+    const showBootstrapError = (message) => {
+      bootMessageEl.textContent = '부트스트랩에 실패했습니다.';
+      bootErrorEl.textContent = message;
+      bootErrorEl.hidden = false;
+      bootRetryButton.hidden = false;
+    };
+
+    bootRetryButton.addEventListener('click', () => {
+      window.location.reload();
+    });
+
+    window.addEventListener('ph:bootstrap-error', (event) => {
+      showBootstrapError(event.detail?.message || '필수 SDK를 불러오지 못했습니다.');
+    });
+
+    import('/js/app.js').catch((error) => {
+      console.error('[bootstrap] Failed to load app.js', error);
+      showBootstrapError('Firebase SDK를 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+    });
+  </script>
+</body>
+</html>

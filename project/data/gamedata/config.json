@@ -1,0 +1,7 @@
+{
+    "startHp": 80,
+    "startGold": 100,
+    "bagCapacity": 20,
+    "rerollCost": 25,
+    "armorConstant": 15
+}

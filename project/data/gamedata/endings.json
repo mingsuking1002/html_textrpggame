@@ -1,0 +1,40 @@
+{
+    "ending_death": {
+        "name": "여정의 끝",
+        "type": "death",
+        "text": "당신의 모험은 여기서 막을 내렸다... 하지만 다음에는 더 강해질 것이다.",
+        "payoutMultiplier": 0.5,
+        "isRankable": false,
+        "requiredFlags": [],
+        "bonusRewards": {},
+        "icon": "/assets/images/ui/ending_death.webp"
+    },
+    "ending_dragon_slayer": {
+        "name": "용을 무찌른 자",
+        "type": "success",
+        "text": "드래곤이 쓰러지고, 세상에 평화가 찾아왔다! 당신은 전설의 영웅이 되었다.",
+        "payoutMultiplier": 2.0,
+        "isRankable": true,
+        "requiredFlags": [
+            "defeated_dragon"
+        ],
+        "bonusRewards": {
+            "gold": 500
+        },
+        "icon": "/assets/images/ui/ending_dragon.webp"
+    },
+    "ending_merchant_king": {
+        "name": "상인의 왕",
+        "type": "success",
+        "text": "전투보다 장사에 능했던 당신은 대륙 최고의 대상인이 되었다.",
+        "payoutMultiplier": 1.5,
+        "isRankable": true,
+        "requiredFlags": [
+            "merchant_route"
+        ],
+        "bonusRewards": {
+            "gold": 300
+        },
+        "icon": "/assets/images/ui/ending_merchant.webp"
+    }
+}

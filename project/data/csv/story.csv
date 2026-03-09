@@ -1,0 +1,12 @@
+id,title,text,type,encounterPool,afterEncounter,combatMonster,onWin,onLose,endingId,shopItems,onEnter,choice1_text,choice1_nextNodeId,choice1_conditions,choice1_effects,choice2_text,choice2_nextNodeId,choice2_conditions,choice2_effects
+node_prologue,모험의 시작,당신은 낡은 검 하나를 들고 마을을 떠난다. 앞에 두 갈래 길이 보인다.,narrative,,,,,,,,,,숲길로 간다,node_forest_entry,,addFlag:chose_forest,해안길을 택한다,node_coast_entry,,addFlag:chose_coast
+node_forest_entry,어두운 숲,울창한 나무 사이로 무언가의 기척이 느껴진다.,encounter_trigger,"enc_forest_ambush,enc_treasure",node_forest_clearing,,,,,,,,,,,,,,
+node_forest_clearing,숲속 공터,전투를 마치고 숲속 공터에 도착했다. 잠시 쉬어갈 수 있다.,narrative,,,,,,,,heal:5,더 깊은 숲으로 진행한다,node_deep_forest,,,마을로 돌아간다,node_village_return,,
+node_coast_entry,해안 절벽,파도 소리가 들린다. 해안가에 상인이 보인다.,narrative,,,,,,,,,,상인에게 다가간다,node_merchant,,,절벽 위 동굴을 탐험한다,node_cave_entry,,addFlag:explored_cave
+node_merchant,떠돌이 상인,상인이 진귀한 물건들을 내보인다.,shop,,,,,,,,"potion:20,shield:35,crossbow:50",,떠난다,$return,,,,,
+node_deep_forest,깊은 숲,숲이 점점 어두워진다. 강력한 존재의 기운이 느껴진다.,encounter_trigger,"enc_skeleton_tomb,enc_orc_camp,enc_healing_spring",node_dragon_gate,,,,,,,,,,,,,,
+node_dragon_gate,용의 관문,거대한 동굴 입구 앞에 섰다. 안에서 열기가 뿜어져 나온다.,narrative,,,,,,,,,,드래곤에게 도전한다,node_dragon_battle,,,돌아선다 (상인의 길),node_ending_merchant,hasFlag:merchant_route,
+node_dragon_battle,최종 전투: 드래곤,드래곤이 포효하며 다가온다!,combat,,,dragon,node_ending_dragon_slayer,node_ending_death,,,,,,,,,,
+node_ending_dragon_slayer,엔딩: 용을 무찌른 자,,ending,,,,,,ending_dragon_slayer,,addFlag:defeated_dragon,,,,,,,,
+node_ending_merchant,엔딩: 상인의 왕,,ending,,,,,,ending_merchant_king,,,,,,,,,
+node_ending_death,엔딩: 여정의 끝,,ending,,,,,,ending_death,,,,,,,,,

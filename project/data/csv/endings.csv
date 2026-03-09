@@ -1,0 +1,4 @@
+id,name,type,text,payoutMultiplier,isRankable,requiredFlags,bonusRewards_gold,icon
+ending_death,여정의 끝,death,당신의 모험은 여기서 막을 내렸다... 하지만 다음에는 더 강해질 것이다.,0.5,false,,0,/assets/images/ui/ending_death.webp
+ending_dragon_slayer,용을 무찌른 자,success,드래곤이 쓰러지고 세상에 평화가 찾아왔다! 당신은 전설의 영웅이 되었다.,2.0,true,defeated_dragon,500,/assets/images/ui/ending_dragon.webp
+ending_merchant_king,상인의 왕,success,전투보다 장사에 능했던 당신은 대륙 최고의 대상인이 되었다.,1.5,true,merchant_route,300,/assets/images/ui/ending_merchant.webp

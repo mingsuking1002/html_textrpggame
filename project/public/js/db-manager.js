@@ -16,11 +16,12 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import { getFirestoreDb } from './firebase-init.js';
+import { getFirestoreDb } from '@ph/firebase-init';
 
 const GAME_DATA_DOC_IDS = Object.freeze([
   'config',
   'classes',
+  'origins',
   'symbols',
   'monsters',
   'encounters',

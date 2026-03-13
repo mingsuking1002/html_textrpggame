@@ -68,6 +68,38 @@ function findExistingSheet(definition, sheets) {
   return sheets.find((sheet) => acceptedTitles.includes(sheet?.properties?.title));
 }
 
+function buildHeaderNoteRequests(definitions, sheets) {
+  const requests = [];
+
+  definitions.forEach((definition) => {
+    const matchedSheet = findExistingSheet(definition, sheets);
+    const sheetId = matchedSheet?.properties?.sheetId;
+    if (sheetId === undefined || sheetId === null) {
+      return;
+    }
+
+    definition.headers.forEach((header, index) => {
+      requests.push({
+        repeatCell: {
+          range: {
+            sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1,
+            startColumnIndex: index,
+            endColumnIndex: index + 1,
+          },
+          cell: {
+            note: definition.headerNotes?.[index] || `${header} 컬럼 설명`,
+          },
+          fields: 'note',
+        },
+      });
+    });
+  });
+
+  return requests;
+}
+
 async function detectExistingHeaders(accessToken, spreadsheetId, sheetTitle) {
   const range = `${quoteSheetTitle(sheetTitle)}!1:1`;
   const result = await getSheetValues(accessToken, spreadsheetId, range);
@@ -169,6 +201,15 @@ async function main() {
       await updateSheetValues(session.accessToken, spreadsheetId, range, [template.headers], 'RAW');
       headerWrites.push(template.title);
     }
+  }
+
+  const refreshedMetadata = await getSpreadsheetMetadata(session.accessToken, spreadsheetId);
+  const headerNoteRequests = buildHeaderNoteRequests(
+    PROJECT_PH_SHEET_DEFINITIONS,
+    refreshedMetadata.metadata?.sheets || [],
+  );
+  if (headerNoteRequests.length > 0) {
+    await batchUpdateSpreadsheet(session.accessToken, spreadsheetId, headerNoteRequests);
   }
 
   console.log('\n🧩 Google Sheets template init complete\n');

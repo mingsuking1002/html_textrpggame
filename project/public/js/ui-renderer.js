@@ -4,7 +4,7 @@
  * DOM 렌더링 담당
  */
 
-import { isMuted, playSFX } from './sound-manager.js';
+import { isMuted, playSFX } from '@ph/sound-manager';
 
 const LOG_LIMIT = 500;
 const TOAST_LIMIT = 4;
@@ -23,6 +23,7 @@ const SCREEN_IDS = Object.freeze({
   LOBBY: 'screen-lobby',
   UPGRADE: 'screen-upgrade',
   RUN_START: 'screen-class-select',
+  ORIGIN_SELECT: 'screen-origin-select',
   CLASS_SELECT: 'screen-class-select',
   PROLOGUE: 'screen-story',
   STORY: 'screen-story',
@@ -72,6 +73,8 @@ function getElements() {
     upgradeList: document.getElementById('upgrade-list'),
     upgradeEmpty: document.getElementById('upgrade-empty'),
     upgradeBackButton: document.getElementById('btn-upgrade-back'),
+    originSelectCopy: document.getElementById('origin-select-copy'),
+    originCards: document.getElementById('origin-cards'),
     classSelectCopy: document.getElementById('class-select-copy'),
     classCards: document.getElementById('class-cards'),
     storyKicker: document.getElementById('story-kicker'),
@@ -81,6 +84,7 @@ function getElements() {
     storyClassName: document.getElementById('story-class-name'),
     storyHp: document.getElementById('story-hp'),
     storyGold: document.getElementById('story-gold'),
+    storyKarma: document.getElementById('story-karma'),
     storyDeck: document.getElementById('story-deck'),
     storyNote: document.getElementById('story-note'),
     storyShop: document.getElementById('story-shop'),
@@ -132,6 +136,14 @@ function formatNumber(value) {
 
 function formatPercent(value) {
   return `${Math.round((Number.isFinite(Number(value)) ? Number(value) : 0) * 100)}%`;
+}
+
+function formatSignedNumber(value) {
+  const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+  if (safeValue > 0) {
+    return `+${safeValue}`;
+  }
+  return String(safeValue);
 }
 
 function clearChildren(element) {
@@ -520,6 +532,58 @@ export function renderLobby(user, currentRun = null, options = {}) {
   }
 }
 
+export function renderOriginSelection(originCards, options = {}) {
+  const dom = getElements();
+  const { locked = false } = options;
+  clearChildren(dom.originCards);
+
+  if (!Array.isArray(originCards) || originCards.length === 0) {
+    dom.originSelectCopy.textContent = '표시할 출신지 데이터가 없습니다.';
+    return;
+  }
+
+  dom.originSelectCopy.textContent = '출신지를 고르면 시작 업보가 정해지고 이후 스토리 선택지의 열림 조건이 달라집니다.';
+  const fragment = document.createDocumentFragment();
+
+  originCards.forEach((originCard) => {
+    const card = document.createElement('article');
+    card.className = 'origin-card';
+
+    const head = document.createElement('div');
+    head.className = 'origin-card-head';
+    head.append(createIcon(originCard.icon, `${originCard.name} 아이콘`));
+
+    const copy = document.createElement('div');
+    copy.className = 'origin-card-copy';
+    copy.append(createTextElement('strong', 'entity-name', originCard.name));
+    copy.append(createTextElement('span', 'entity-subtle', originCard.description));
+    head.append(copy);
+
+    const meta = document.createElement('div');
+    meta.className = 'chip-list';
+    meta.append(createChip(`시작 업보 ${formatSignedNumber(originCard.baseKarma)}`, 'chip chip-accent'));
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'origin-card-actions';
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    selectButton.className = 'button-primary';
+    selectButton.textContent = locked ? '선택 중...' : '선택';
+    selectButton.disabled = locked;
+    selectButton.addEventListener('click', () => {
+      uiHandlers.onOriginSelect?.(originCard.originId);
+    });
+    actionRow.append(selectButton);
+
+    card.append(head);
+    card.append(meta);
+    card.append(actionRow);
+    fragment.append(card);
+  });
+
+  dom.originCards.append(fragment);
+}
+
 export function renderUpgradeShop(upgradeDefs, userUpgrades = {}, crystals = 0, options = {}) {
   const dom = getElements();
   const upgradeEntries = Object.entries(upgradeDefs || {});
@@ -601,7 +665,7 @@ export function renderUpgradeShop(upgradeDefs, userUpgrades = {}, crystals = 0, 
 
 export function renderClassSelection(classCards, options = {}) {
   const dom = getElements();
-  const { locked = false } = options;
+  const { locked = false, copyText = '시작 직업을 고르면 프롤로그와 스토리 루프가 시작됩니다.' } = options;
   clearChildren(dom.classCards);
 
   if (!Array.isArray(classCards) || classCards.length === 0) {
@@ -609,7 +673,7 @@ export function renderClassSelection(classCards, options = {}) {
     return;
   }
 
-  dom.classSelectCopy.textContent = '시작 직업을 고르면 프롤로그와 스토리 루프가 시작됩니다.';
+  dom.classSelectCopy.textContent = copyText;
   const fragment = document.createDocumentFragment();
 
   classCards.forEach((classCard) => {
@@ -659,6 +723,7 @@ export function renderStory(renderModel, context) {
   dom.storyClassName.textContent = classInfo?.name || '-';
   dom.storyHp.textContent = `${formatNumber(currentRun?.hp)} / ${formatNumber(currentRun?.maxHp)}`;
   dom.storyGold.textContent = formatNumber(currentRun?.gold);
+  dom.storyKarma.textContent = formatSignedNumber(currentRun?.karma);
   dom.storyDeck.textContent = `${filledDeckSlots} / ${formatNumber(totalDeckSlots)}`;
   dom.storyNote.textContent = note;
   dom.storyNote.hidden = !note;
@@ -721,14 +786,40 @@ export function renderStory(renderModel, context) {
 
   const choiceFragment = document.createDocumentFragment();
   renderModel.choices.forEach((choice, index) => {
+    const card = document.createElement('article');
+    card.className = 'choice-card';
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'choice-button';
     button.textContent = choice.text;
-    button.addEventListener('click', () => {
-      uiHandlers.onStoryChoice?.(index);
-    });
-    choiceFragment.append(button);
+    button.disabled = choice.isAvailable === false;
+    if (choice.isAvailable !== false) {
+      button.addEventListener('click', () => {
+        uiHandlers.onStoryChoice?.(index);
+      });
+    }
+
+    card.append(button);
+
+    if (choice.karmaHint || choice.disabledReason) {
+      const meta = document.createElement('div');
+      meta.className = 'choice-meta';
+
+      if (choice.karmaHint) {
+        const hintClassName = choice.karmaHint.includes('악')
+          ? 'chip chip-danger'
+          : (choice.karmaHint.includes('선') ? 'chip chip-success' : 'chip');
+        meta.append(createChip(choice.karmaHint, hintClassName));
+      }
+
+      if (choice.disabledReason) {
+        meta.append(createTextElement('span', 'entity-subtle choice-reason', choice.disabledReason));
+      }
+
+      card.append(meta);
+    }
+
+    choiceFragment.append(card);
   });
   dom.storyChoices.append(choiceFragment);
 }

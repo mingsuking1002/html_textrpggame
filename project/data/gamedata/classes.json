@@ -2,27 +2,79 @@
   "warrior": {
     "name": "전사",
     "icon": "/assets/images/classes/warrior.webp",
+    "description": "",
+    "baseHp": 0,
+    "baseGold": 0,
+    "deckSize": 0,
+    "themeColor": "",
+    "isEnabled": true,
     "weapons": [
       "sword",
       "mace",
       "hammer"
+    ],
+    "startingDeck": [
+      {
+        "symbolId": "sword",
+        "count": 2
+      },
+      {
+        "symbolId": "mace",
+        "count": 1
+      },
+      {
+        "symbolId": "hammer",
+        "count": 1
+      }
     ]
   },
   "archer": {
     "name": "궁수",
     "icon": "/assets/images/classes/archer.webp",
+    "description": "",
+    "baseHp": 0,
+    "baseGold": 0,
+    "deckSize": 0,
+    "themeColor": "",
+    "isEnabled": true,
     "weapons": [
       "bow",
       "crossbow",
       "dagger"
+    ],
+    "startingDeck": [
+      {
+        "symbolId": "bow",
+        "count": 2
+      },
+      {
+        "symbolId": "crossbow",
+        "count": 2
+      }
     ]
   },
   "mage": {
     "name": "마법사",
     "icon": "/assets/images/classes/mage.webp",
+    "description": "",
+    "baseHp": 0,
+    "baseGold": 0,
+    "deckSize": 0,
+    "themeColor": "",
+    "isEnabled": true,
     "weapons": [
       "staff",
       "dagger"
+    ],
+    "startingDeck": [
+      {
+        "symbolId": "staff",
+        "count": 2
+      },
+      {
+        "symbolId": "dagger",
+        "count": 2
+      }
     ]
   }
 }

@@ -5,23 +5,27 @@
     "text": "당신의 모험은 여기서 막을 내렸다... 하지만 다음에는 더 강해질 것이다.",
     "payoutMultiplier": 0.5,
     "isRankable": false,
-    "requiredFlags": [],
-    "bonusRewards": {},
-    "icon": "/assets/images/ui/ending_death.webp"
+    "bonusRewards": {
+      "gold": 0
+    },
+    "icon": "/assets/images/ui/ending_death.webp",
+    "isEnabled": true,
+    "requiredFlags": []
   },
   "ending_dragon_slayer": {
     "name": "용을 무찌른 자",
     "type": "success",
     "text": "드래곤이 쓰러지고, 세상에 평화가 찾아왔다! 당신은 전설의 영웅이 되었다.",
-    "payoutMultiplier": 2.0,
+    "payoutMultiplier": 2,
     "isRankable": true,
-    "requiredFlags": [
-      "defeated_dragon"
-    ],
     "bonusRewards": {
       "gold": 500
     },
-    "icon": "/assets/images/ui/ending_dragon.webp"
+    "icon": "/assets/images/ui/ending_dragon.webp",
+    "isEnabled": true,
+    "requiredFlags": [
+      "defeated_dragon"
+    ]
   },
   "ending_merchant_king": {
     "name": "상인의 왕",
@@ -29,13 +33,14 @@
     "text": "검 대신 계약서를 든 당신은 대륙 최고의 대상인이 되었다.",
     "payoutMultiplier": 1.5,
     "isRankable": true,
-    "requiredFlags": [
-      "merchant_route"
-    ],
     "bonusRewards": {
       "gold": 300
     },
-    "icon": "/assets/images/ui/ending_merchant.webp"
+    "icon": "/assets/images/ui/ending_merchant.webp",
+    "isEnabled": true,
+    "requiredFlags": [
+      "merchant_route"
+    ]
   },
   "ending_cave_explorer": {
     "name": "동굴 탐험가",
@@ -43,13 +48,14 @@
     "text": "누구보다 먼저 심연의 지도를 완성한 당신은 새로운 길의 개척자가 되었다.",
     "payoutMultiplier": 1.3,
     "isRankable": false,
-    "requiredFlags": [
-      "explored_cave"
-    ],
     "bonusRewards": {
       "gold": 180
     },
-    "icon": "/assets/images/ui/ending_cave.webp"
+    "icon": "/assets/images/ui/ending_cave.webp",
+    "isEnabled": true,
+    "requiredFlags": [
+      "explored_cave"
+    ]
   },
   "ending_lich_slayer": {
     "name": "리치 사냥꾼",
@@ -57,12 +63,13 @@
     "text": "불멸을 꿈꾸던 리치는 쓰러졌고, 당신의 이름은 금기의 심연을 정복한 자로 기록된다.",
     "payoutMultiplier": 1.8,
     "isRankable": true,
-    "requiredFlags": [
-      "defeated_lich"
-    ],
     "bonusRewards": {
       "gold": 420
     },
-    "icon": "/assets/images/ui/ending_lich.webp"
+    "icon": "/assets/images/ui/ending_lich.webp",
+    "isEnabled": true,
+    "requiredFlags": [
+      "defeated_lich"
+    ]
   }
 }

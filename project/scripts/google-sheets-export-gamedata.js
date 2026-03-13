@@ -99,6 +99,38 @@ function findExistingSheet(definition, sheets) {
   return sheets.find((sheet) => acceptedTitles.includes(sheet?.properties?.title));
 }
 
+function buildHeaderNoteRequests(definitions, sheets) {
+  const requests = [];
+
+  definitions.forEach((definition) => {
+    const matchedSheet = findExistingSheet(definition, sheets);
+    const sheetId = matchedSheet?.properties?.sheetId;
+    if (sheetId === undefined || sheetId === null) {
+      return;
+    }
+
+    definition.headers.forEach((header, index) => {
+      requests.push({
+        repeatCell: {
+          range: {
+            sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1,
+            startColumnIndex: index,
+            endColumnIndex: index + 1,
+          },
+          cell: {
+            note: definition.headerNotes?.[index] || `${header} 컬럼 설명`,
+          },
+          fields: 'note',
+        },
+      });
+    });
+  });
+
+  return requests;
+}
+
 function loadStartingDeckRecipes() {
   const source = fs.readFileSync(STORY_ENGINE_PATH, 'utf8');
   const blockMatch = source.match(/const STARTING_DECK_RECIPES = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
@@ -131,6 +163,7 @@ function loadStartingDeckRecipes() {
 function buildSheetRows() {
   const classes = readJson('classes.json');
   const config = readJson('config.json');
+  const origins = readJson('origins.json');
   const symbols = readJson('symbols.json');
   const monsters = readJson('monsters.json');
   const encounters = readJson('encounters.json');
@@ -156,6 +189,14 @@ function buildSheetRows() {
     class_starting_deck: Object.entries(startingDeckRecipes).flatMap(([classId, recipeRows]) => (
       recipeRows.map((row, index) => [classId, row.symbolId, row.count, index + 1, 'story-engine.js'])
     )),
+    origins: Object.entries(origins).map(([id, data]) => [
+      id,
+      data.name || '',
+      data.icon || '',
+      data.description || '',
+      data.baseKarma ?? '',
+      toBoolString(data.isEnabled, true),
+    ]),
     symbols: Object.entries(symbols).map(([id, data]) => [
       id,
       data.name || '',
@@ -239,6 +280,10 @@ function buildSheetRows() {
         choice.effects?.heal ?? '',
         choice.effects?.addGold ?? '',
         index + 1,
+        choice.conditions?.minKarma ?? '',
+        choice.conditions?.maxKarma ?? '',
+        choice.effects?.addKarma ?? '',
+        choice.karmaHint || '',
       ])
     )),
     story_shop_items: Object.entries(story).flatMap(([nodeId, node]) => (
@@ -281,6 +326,9 @@ function buildSheetRows() {
       ['core', 'bagCapacity', config.bagCapacity ?? '', 'number', '기본 가방 칸 수'],
       ['core', 'rerollCost', config.rerollCost ?? '', 'number', '전투 리롤 비용'],
       ['core', 'armorConstant', config.armorConstant ?? '', 'number', '방어 상수'],
+      ['karma', 'initialKarma', config.karma?.initialKarma ?? '', 'number', '출신지 미선택 시 기본 업보'],
+      ['karma', 'minKarma', config.karma?.minKarma ?? '', 'number', '업보 최소값'],
+      ['karma', 'maxKarma', config.karma?.maxKarma ?? '', 'number', '업보 최대값'],
       ['crystalRewards', 'base', config.crystalRewards?.base ?? '', 'number', '기본 결정 보상'],
       ['crystalRewards', 'perStage', config.crystalRewards?.perStage ?? '', 'number', '스테이지당 결정'],
       ['crystalRewards', 'successBonus', config.crystalRewards?.successBonus ?? '', 'number', '성공 엔딩 보너스'],
@@ -391,6 +439,15 @@ async function main() {
       definition,
       rowsBySheet[definition.key] || [],
     );
+  }
+
+  const refreshedMetadata = await getSpreadsheetMetadata(session.accessToken, spreadsheetId);
+  const headerNoteRequests = buildHeaderNoteRequests(
+    PROJECT_PH_SHEET_DEFINITIONS,
+    refreshedMetadata.metadata?.sheets || [],
+  );
+  if (headerNoteRequests.length > 0) {
+    await batchUpdateSpreadsheet(session.accessToken, spreadsheetId, headerNoteRequests);
   }
 
   console.log('\n📤 Project PH GameData exported to Google Sheets\n');

@@ -9,16 +9,17 @@
       5,
       15
     ],
+    "icon": "/assets/images/monsters/slime.webp",
+    "tier": "1",
+    "tags": [
+      "normal"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "potion",
         "dropRate": 0.3
       }
-    ],
-    "icon": "/assets/images/monsters/slime.webp",
-    "tier": 1,
-    "tags": [
-      "normal"
     ]
   },
   "goblin": {
@@ -31,6 +32,12 @@
       10,
       25
     ],
+    "icon": "/assets/images/monsters/goblin.webp",
+    "tier": "1",
+    "tags": [
+      "normal"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "sword",
@@ -40,11 +47,6 @@
         "symbolId": "potion",
         "dropRate": 0.2
       }
-    ],
-    "icon": "/assets/images/monsters/goblin.webp",
-    "tier": 1,
-    "tags": [
-      "normal"
     ]
   },
   "skeleton": {
@@ -57,6 +59,12 @@
       15,
       35
     ],
+    "icon": "/assets/images/monsters/skeleton.webp",
+    "tier": "2",
+    "tags": [
+      "normal"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "shield",
@@ -66,11 +74,6 @@
         "symbolId": "mace",
         "dropRate": 0.1
       }
-    ],
-    "icon": "/assets/images/monsters/skeleton.webp",
-    "tier": 2,
-    "tags": [
-      "normal"
     ]
   },
   "orc_warrior": {
@@ -83,6 +86,12 @@
       20,
       50
     ],
+    "icon": "/assets/images/monsters/orc_warrior.webp",
+    "tier": "2",
+    "tags": [
+      "elite"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "hammer",
@@ -92,11 +101,6 @@
         "symbolId": "potion",
         "dropRate": 0.25
       }
-    ],
-    "icon": "/assets/images/monsters/orc_warrior.webp",
-    "tier": 2,
-    "tags": [
-      "elite"
     ]
   },
   "dragon": {
@@ -109,6 +113,12 @@
       50,
       150
     ],
+    "icon": "/assets/images/monsters/dragon.webp",
+    "tier": "3",
+    "tags": [
+      "boss"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "hammer",
@@ -118,11 +128,6 @@
         "symbolId": "crossbow",
         "dropRate": 0.2
       }
-    ],
-    "icon": "/assets/images/monsters/dragon.webp",
-    "tier": 3,
-    "tags": [
-      "boss"
     ]
   },
   "wolf": {
@@ -135,6 +140,12 @@
       8,
       18
     ],
+    "icon": "/assets/images/monsters/wolf.webp",
+    "tier": "1",
+    "tags": [
+      "normal"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "dagger",
@@ -144,11 +155,6 @@
         "symbolId": "herb",
         "dropRate": 0.35
       }
-    ],
-    "icon": "/assets/images/monsters/wolf.webp",
-    "tier": 1,
-    "tags": [
-      "normal"
     ]
   },
   "bandit": {
@@ -161,6 +167,12 @@
       15,
       30
     ],
+    "icon": "/assets/images/monsters/bandit.webp",
+    "tier": "1",
+    "tags": [
+      "normal"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "dagger",
@@ -174,11 +186,6 @@
         "symbolId": "gold_coin",
         "dropRate": 0.16
       }
-    ],
-    "icon": "/assets/images/monsters/bandit.webp",
-    "tier": 1,
-    "tags": [
-      "normal"
     ]
   },
   "dark_mage": {
@@ -191,6 +198,12 @@
       18,
       42
     ],
+    "icon": "/assets/images/monsters/dark_mage.webp",
+    "tier": "2",
+    "tags": [
+      "elite"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "staff",
@@ -200,11 +213,6 @@
         "symbolId": "elixir",
         "dropRate": 0.12
       }
-    ],
-    "icon": "/assets/images/monsters/dark_mage.webp",
-    "tier": 2,
-    "tags": [
-      "elite"
     ]
   },
   "golem": {
@@ -217,6 +225,12 @@
       22,
       48
     ],
+    "icon": "/assets/images/monsters/golem.webp",
+    "tier": "2",
+    "tags": [
+      "elite"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "helmet",
@@ -226,11 +240,6 @@
         "symbolId": "armor",
         "dropRate": 0.12
       }
-    ],
-    "icon": "/assets/images/monsters/golem.webp",
-    "tier": 2,
-    "tags": [
-      "elite"
     ]
   },
   "lich": {
@@ -243,6 +252,12 @@
       45,
       100
     ],
+    "icon": "/assets/images/monsters/lich.webp",
+    "tier": "3",
+    "tags": [
+      "boss"
+    ],
+    "isEnabled": true,
     "lootTable": [
       {
         "symbolId": "staff",
@@ -252,11 +267,6 @@
         "symbolId": "elixir",
         "dropRate": 0.28
       }
-    ],
-    "icon": "/assets/images/monsters/lich.webp",
-    "tier": 3,
-    "tags": [
-      "boss"
     ]
   }
 }

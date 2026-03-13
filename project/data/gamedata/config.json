@@ -4,11 +4,37 @@
   "bagCapacity": 20,
   "rerollCost": 25,
   "armorConstant": 15,
+  "karma": {
+    "initialKarma": 0,
+    "minKarma": -100,
+    "maxKarma": 100
+  },
   "crystalRewards": {
     "base": 6,
     "perStage": 2,
     "successBonus": 8,
     "rankableBonus": 4
+  },
+  "sounds": {
+    "defaultVolume": {
+      "bgm": 0.45,
+      "sfx": 0.7
+    },
+    "bgm": {
+      "title": "/assets/sounds/bgm_title.wav",
+      "lobby": "/assets/sounds/bgm_lobby.wav",
+      "battle": "/assets/sounds/bgm_battle.wav",
+      "ending": "/assets/sounds/bgm_ending.wav"
+    },
+    "sfx": {
+      "spin": "/assets/sounds/sfx_spin.wav",
+      "hit": "/assets/sounds/sfx_hit.wav",
+      "heal": "/assets/sounds/sfx_heal.wav",
+      "victory": "/assets/sounds/sfx_victory.wav",
+      "defeat": "/assets/sounds/sfx_defeat.wav",
+      "purchase": "/assets/sounds/sfx_purchase.wav",
+      "click": "/assets/sounds/sfx_click.wav"
+    }
   },
   "synergies": [
     {
@@ -30,27 +56,6 @@
       "label": "회복 시너지"
     }
   ],
-  "sounds": {
-    "bgm": {
-      "title": "/assets/sounds/bgm_title.wav",
-      "lobby": "/assets/sounds/bgm_lobby.wav",
-      "battle": "/assets/sounds/bgm_battle.wav",
-      "ending": "/assets/sounds/bgm_ending.wav"
-    },
-    "sfx": {
-      "spin": "/assets/sounds/sfx_spin.wav",
-      "hit": "/assets/sounds/sfx_hit.wav",
-      "heal": "/assets/sounds/sfx_heal.wav",
-      "victory": "/assets/sounds/sfx_victory.wav",
-      "defeat": "/assets/sounds/sfx_defeat.wav",
-      "purchase": "/assets/sounds/sfx_purchase.wav",
-      "click": "/assets/sounds/sfx_click.wav"
-    },
-    "defaultVolume": {
-      "bgm": 0.45,
-      "sfx": 0.7
-    }
-  },
   "upgrades": {
     "upgrade_hp": {
       "name": "생명력 강화",

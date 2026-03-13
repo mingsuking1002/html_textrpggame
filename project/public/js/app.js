@@ -12,9 +12,9 @@ import {
   saveCurrentRun,
   saveUserMeta,
   submitRanking,
-} from './db-manager.js';
-import { AppState, getState, setState, subscribe } from './game-state.js';
-import { initFirebase, logOut, onAuthChange, signIn } from './firebase-init.js';
+} from '@ph/db-manager';
+import { AppState, getState, setState, subscribe } from '@ph/game-state';
+import { initFirebase, logOut, onAuthChange, signIn } from '@ph/firebase-init';
 import {
   addSymbolToDeck,
   advanceStage,
@@ -29,13 +29,13 @@ import {
   normalizeRunState,
   pushReturnNode,
   rollEncounter,
-} from './story-engine.js';
+} from '@ph/story-engine';
 import {
   buildCombatEnemy,
   createCombatState,
   executeCombatRound,
   spin,
-} from './combat-engine.js';
+} from '@ph/combat-engine';
 import {
   bindUIActions,
   renderClassSelection,
@@ -45,6 +45,7 @@ import {
   renderCombatVictory,
   renderEndingView,
   renderLobby,
+  renderOriginSelection,
   renderSoundControls,
   renderUpgradeShop,
   renderScreen,
@@ -53,7 +54,7 @@ import {
   setBootProgress,
   setBootStatus,
   showToast,
-} from './ui-renderer.js?v=20260309-nickguard-1';
+} from '@ph/ui-renderer';
 import {
   getVolume,
   initSoundManager,
@@ -63,7 +64,7 @@ import {
   setMuted,
   setVolume,
   stopBGM,
-} from './sound-manager.js';
+} from '@ph/sound-manager';
 
 if (typeof window !== 'undefined') {
   window.__PH_BOOT_DIAG__ = {
@@ -87,6 +88,7 @@ let authUnsubscribe = null;
 let activeAuthTaskId = 0;
 let retryAuthLoad = null;
 let activeStoryView = null;
+let originSelectLocked = false;
 let classSelectLocked = false;
 let queuedAutoSaveTimer = null;
 let queuedAutoSaveResolvers = [];
@@ -311,7 +313,7 @@ function getBgmTrackForScreen(screen) {
     return 'battle';
   }
 
-  if ([AppState.LOBBY, AppState.UPGRADE, AppState.CLASS_SELECT, AppState.PROLOGUE, AppState.STORY].includes(screen)) {
+  if ([AppState.LOBBY, AppState.UPGRADE, AppState.ORIGIN_SELECT, AppState.CLASS_SELECT, AppState.PROLOGUE, AppState.STORY].includes(screen)) {
     return 'lobby';
   }
 
@@ -469,6 +471,55 @@ function buildClassSelectionModels(gameData) {
       weapons: weaponLabels,
       summary: `시작 덱 ${weaponLabels.join(' · ')}`,
     };
+  });
+}
+
+function formatSignedValue(value) {
+  const safeValue = Number(value || 0);
+  if (safeValue > 0) {
+    return `+${safeValue}`;
+  }
+  return String(safeValue);
+}
+
+function buildOriginSelectionModels(gameData) {
+  return Object.entries(gameData?.origins || {})
+    .filter(([, originInfo]) => originInfo?.isEnabled !== false)
+    .map(([originId, originInfo]) => ({
+      originId,
+      name: originInfo.name || originId,
+      icon: originInfo.icon || '',
+      description: originInfo.description || '',
+      baseKarma: Number(originInfo.baseKarma || 0),
+    }));
+}
+
+function getSelectedOrigin(gameData, currentRun = null) {
+  const originId = currentRun?.originId || null;
+  return originId ? gameData?.origins?.[originId] || null : null;
+}
+
+function getClassSelectionCopy(gameData, currentRun = null) {
+  const selectedOrigin = getSelectedOrigin(gameData, currentRun);
+  if (!selectedOrigin) {
+    return '시작 직업을 고르면 프롤로그와 스토리 루프가 시작됩니다.';
+  }
+
+  return `${selectedOrigin.name} 출신 · 시작 업보 ${formatSignedValue(selectedOrigin.baseKarma)} · 이제 직업을 선택합니다.`;
+}
+
+function renderOriginSelectionState() {
+  const state = getState();
+  renderOriginSelection(buildOriginSelectionModels(state.gameData), {
+    locked: originSelectLocked,
+  });
+}
+
+function renderClassSelectionState() {
+  const state = getState();
+  renderClassSelection(buildClassSelectionModels(state.gameData), {
+    locked: classSelectLocked,
+    copyText: getClassSelectionCopy(state.gameData, state.currentRun),
   });
 }
 
@@ -983,7 +1034,9 @@ function enterStoryNode(nodeId, baseRun, options = {}) {
   }
 
   if (!options.skipOnEnter) {
-    nextRun = applyEffects(initialRenderModel.onEnter, nextRun);
+    nextRun = applyEffects(initialRenderModel.onEnter, nextRun, {
+      config: state.gameData?.config,
+    });
   }
   nextRun.currentNodeId = nodeId;
   nextRun.blockedReason = null;
@@ -1046,7 +1099,13 @@ function handleEncounterTrigger(renderModel, currentRun) {
       return false;
     }
 
-    return enterStoryNode(renderModel.afterEncounter, updatedState, { screen: AppState.STORY });
+    const entered = enterStoryNode(renderModel.afterEncounter, updatedState, {
+      screen: AppState.STORY,
+    });
+    if (entered) {
+      void queueAutoSave('reward-encounter', getState().currentRun);
+    }
+    return entered;
   }
 
   if (encounter.type === 'combat') {
@@ -1064,17 +1123,15 @@ function handleEncounterTrigger(renderModel, currentRun) {
     });
   }
 
-  if (encounter.type === 'event') {
+  if (!['combat', 'reward'].includes(String(encounter.type || '').toLowerCase())) {
     const targetNode = state.gameData?.story?.[encounter.storyNodeId];
 
     if (!targetNode) {
-      failToLobby('이벤트 인카운트가 올바른 스토리 노드를 가리키지 않습니다.');
+      failToLobby('스토리형 인카운트가 올바른 스토리 노드를 가리키지 않습니다.');
       return false;
     }
 
-    const returnNodeId = targetNode.type === 'shop'
-      ? (renderModel.afterEncounter || currentRun.currentNodeId)
-      : null;
+    const returnNodeId = renderModel.afterEncounter || currentRun.currentNodeId || null;
 
     showToast(encounter.description || encounter.name || '이벤트가 발생했습니다.', 'info');
     return enterStoryNode(encounter.storyNodeId, progressedRun, {
@@ -1144,12 +1201,40 @@ function restoreActiveRun(currentRun) {
   const state = getState();
   const storyData = state.gameData?.story;
   const restoredRun = normalizeRunState(currentRun);
+  const enabledOrigins = buildOriginSelectionModels(state.gameData);
 
   if (
     restoredRun.blockedReason === COMBAT_BLOCKED_REASON
     && restoredRun.combatContext?.monsterId
     && restoreCombatFromRun(restoredRun)
   ) {
+    return true;
+  }
+
+  if (!restoredRun.classId) {
+    clearTransientViews();
+    setState({ currentRun: restoredRun });
+
+    if (restoredRun.originId && state.gameData?.origins?.[restoredRun.originId]) {
+      classSelectLocked = false;
+      transitionTo(AppState.CLASS_SELECT);
+      renderClassSelectionState();
+      showToast('직업 선택 단계의 런을 복구했습니다.', 'info');
+      return true;
+    }
+
+    if (enabledOrigins.length > 0) {
+      originSelectLocked = false;
+      transitionTo(AppState.ORIGIN_SELECT);
+      renderOriginSelectionState();
+      showToast('출신지 선택 단계의 런을 복구했습니다.', 'info');
+      return true;
+    }
+
+    classSelectLocked = false;
+    transitionTo(AppState.CLASS_SELECT);
+    renderClassSelectionState();
+    showToast('출신지 데이터가 없어 직업 선택 단계로 복구했습니다.', 'info');
     return true;
   }
 
@@ -1177,6 +1262,7 @@ function restoreActiveRun(currentRun) {
 function handleStartRun() {
   const state = getState();
   const currentRun = normalizeRunState(state.currentRun);
+  const availableOrigins = buildOriginSelectionModels(state.gameData);
 
   if (!state.gameData) {
     showToast('게임 데이터가 아직 준비되지 않았습니다.', 'error');
@@ -1189,9 +1275,52 @@ function handleStartRun() {
     return;
   }
 
+  originSelectLocked = false;
   classSelectLocked = false;
-  renderClassSelection(buildClassSelectionModels(state.gameData), { locked: false });
+  if (availableOrigins.length === 0) {
+    showToast('출신지 데이터가 없어 직업 선택으로 바로 이동합니다.', 'info');
+    renderClassSelectionState();
+    transitionTo(AppState.CLASS_SELECT);
+    return;
+  }
+
+  renderOriginSelectionState();
+  transitionTo(AppState.ORIGIN_SELECT);
+}
+
+function handleOriginSelect(originId) {
+  if (originSelectLocked) {
+    return;
+  }
+
+  const state = getState();
+  const originData = state.gameData?.origins?.[originId];
+
+  if (!originData || originData.isEnabled === false) {
+    showToast('선택한 출신지 데이터를 찾지 못했습니다.', 'error');
+    return;
+  }
+
+  originSelectLocked = true;
+  playSFX('click');
+  renderOriginSelectionState();
+
+  const provisionalRun = createInactiveRunState({
+    isActive: true,
+    originId,
+    karma: Number(originData.baseKarma || 0),
+  });
+
+  setState({ currentRun: provisionalRun });
+  originSelectLocked = false;
+  classSelectLocked = false;
   transitionTo(AppState.CLASS_SELECT);
+  renderClassSelectionState();
+  showToast(`${originData.name} 출신 · 시작 업보 ${formatSignedValue(originData.baseKarma)}`, 'success');
+  void persistRun(provisionalRun, {
+    showSuccessToast: false,
+    errorMessage: '출신지 선택 상태 저장에 실패했습니다. 네트워크를 확인해 주세요.',
+  });
 }
 
 function handleClassSelect(classId) {
@@ -1205,11 +1334,22 @@ function handleClassSelect(classId) {
     return;
   }
 
+  if (buildOriginSelectionModels(state.gameData).length > 0 && !state.currentRun?.originId) {
+    showToast('출신지를 먼저 선택해 주세요.', 'info');
+    transitionTo(AppState.ORIGIN_SELECT);
+    renderOriginSelectionState();
+    return;
+  }
+
   classSelectLocked = true;
   playSFX('click');
-  renderClassSelection(buildClassSelectionModels(state.gameData), { locked: true });
+  renderClassSelectionState();
 
-  const nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades);
+  const nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades, {
+    originId: state.currentRun?.originId || null,
+    originData: getSelectedOrigin(state.gameData, state.currentRun),
+    baseKarma: state.currentRun?.karma,
+  });
   setState({ currentRun: nextRun });
   if (enterStoryNode('node_prologue', nextRun, { screen: AppState.PROLOGUE })) {
     void queueAutoSave('run-start', getState().currentRun);
@@ -1233,7 +1373,9 @@ function handleStoryChoice(choiceIndex) {
   let updatedState;
 
   try {
-    ({ nextNodeId, updatedState } = applyChoice(choice, currentRun));
+    ({ nextNodeId, updatedState } = applyChoice(choice, currentRun, {
+      config: state.gameData?.config,
+    }));
   } catch (error) {
     failToLobby('선택지 적용에 실패했습니다. 로비로 돌아갑니다.', error);
     return;
@@ -1981,6 +2123,7 @@ async function handleLogout() {
 function handleSignedOut() {
   retryAuthLoad = null;
   activeAuthTaskId += 1;
+  originSelectLocked = false;
   classSelectLocked = false;
   activeUpgradePurchaseId = null;
   activeNicknameSave = false;
@@ -2032,6 +2175,9 @@ async function boot() {
     },
     onStartRun: () => {
       handleStartRun();
+    },
+    onOriginSelect: (originId) => {
+      handleOriginSelect(originId);
     },
     onUpgrade: () => {
       handleUpgrade();
@@ -2149,6 +2295,14 @@ subscribe((state) => {
 
   if (state.uiState.screen === AppState.LOBBY && state.user) {
     renderLobbyState();
+  }
+
+  if (state.uiState.screen === AppState.ORIGIN_SELECT && state.gameData) {
+    renderOriginSelectionState();
+  }
+
+  if (state.uiState.screen === AppState.CLASS_SELECT && state.gameData) {
+    renderClassSelectionState();
   }
 
   if (state.uiState.screen === AppState.UPGRADE && state.user) {

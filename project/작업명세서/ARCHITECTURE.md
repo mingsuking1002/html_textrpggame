@@ -26,7 +26,7 @@
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
 | export const | `GAME_DATA_DOC_COUNT` | `number` | GameData 문서 개수 (progress 계산용) |
-| export | `loadGameData` | `() → Promise<GameDataCache>` | GameData 7문서 병렬 로드 + deepFreeze 캐싱 |
+| export | `loadGameData` | `() → Promise<GameDataCache>` | GameData 8문서 병렬 로드 + deepFreeze 캐싱 |
 | export | `loadGameDataWithProgress` | `(onProgress) → Promise<GameDataCache>` | GameData 병렬 로드 + 문서별 progress 콜백 |
 | export | `loadUserData` | `(authSource, authProfile?, onTrace?) → Promise<UserDoc>` | Users/{uid} 로드 (없으면 초기 문서 생성, 계측 trace 콜백 지원) |
 | export | `saveCurrentRun` | `(uid, currentRun) → Promise<void>` | currentRun 필드 Auto-save + localStorage 백업 미러링 |
@@ -50,7 +50,7 @@
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
-| export const | `AppState` | `Enum{BOOT,AUTH,LOBBY,...PAYOUT}` | 앱 상태 열거형 (14개) |
+| export const | `AppState` | `Enum{BOOT,AUTH,LOBBY,UPGRADE,RUN_START,ORIGIN_SELECT,...PAYOUT}` | 앱 상태 열거형 (15개) |
 | export | `getState` | `() → State` | 현재 전체 상태 반환 |
 | export | `setState` | `(partial) → void` | 부분 상태 업데이트 + 리스너 알림 |
 | export | `subscribe` | `(listener) → Unsubscribe` | 상태 변경 구독 |
@@ -99,19 +99,19 @@
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
-| export | `createInitialRun` | `(classId, config, userUpgrades?) → RunState` | 새 런 상태 생성 (직업 선택 후, 영구 강화 보너스 반영) |
+| export | `createInitialRun` | `(classId, config, userUpgrades?, options?) → RunState` | 새 런 상태 생성 (직업 선택 후, 출신지/업보/영구 강화 보너스 반영) |
 | export | `createInactiveRunState` | `(overrides?) → RunState` | isActive=false 런 상태 |
 | export | `normalizeRunState` | `(playerState?) → RunState` | 불완전 런 상태 정규화 |
 | export | `loadNode` | `(nodeId, storyData, playerState) → RenderModel` | 스토리 노드를 렌더 모델로 로드 |
-| export | `applyChoice` | `(choice, playerState) → { nextNodeId, updatedState }` | 선택지 효과 적용 + 다음 노드 계산 |
+| export | `applyChoice` | `(choice, playerState, options?) → { nextNodeId, updatedState }` | 선택지 효과 적용 + 다음 노드 계산 |
 | export | `rollEncounter` | `(pool, encountersData, playerState, randomFn?) → Encounter\|null` | 인카운트 롤 (가중치+조건) |
 | export | `applyRewardEncounter` | `(encounter, playerState, randomFn?) → RewardResult` | 보상형 인카운트 적용 |
 | export | `checkEnding` | `(endingsData, playerState) → EndingId\|null` | 엔딩 조건 체크 |
 | export | `resolveEndingId` | `(requestedId, endingsData, playerState, fallback?) → EndingId` | 엔딩 ID 확정 (조건 불충족 시 fallback) |
 | export | `calculateEndingOutcome` | `(endingId, endingsData, playerState) → EndingOutcome` | 엔딩 결과 (보상/랭킹) 계산 |
 | export | `buildInitialDeck` | `(classId, bagCapacity) → Deck` | 직업별 초기 덱 생성 |
-| export | `meetsConditions` | `(conditions, playerState) → boolean` | 조건 판정 (flags/스테이지) |
-| export | `applyEffects` | `(effects, playerState) → PlayerState` | 효과 적용 (flags/HP/골드/스테이지) |
+| export | `meetsConditions` | `(conditions, playerState) → boolean` | 조건 판정 (flags/스테이지/karma) |
+| export | `applyEffects` | `(effects, playerState, options?) → PlayerState` | 효과 적용 (flags/HP/골드/스테이지/karma) |
 | export | `advanceStage` | `(playerState, amount?) → PlayerState` | 스테이지 진행 |
 | export | `addSymbolToDeck` | `(playerState, symbolId) → DeckResult` | 덱에 기물 추가 |
 | export | `countFilledDeckSlots` | `(playerState) → number` | 채워진 덱 슬롯 수 |
@@ -122,6 +122,9 @@
 | internal | `toArray` | `(value) → Array` | 안전한 배열 변환 |
 | internal | `normalizeCombatContext` | `(combatContext?) → CombatContext\|null` | 저장된 전투 컨텍스트 정규화 |
 | internal | `calculateUpgradeBonuses` | `(config, userUpgrades) → UpgradeBonuses` | 강화 정의 기준 시작 보너스 계산 |
+| internal | `resolveKarmaBounds` | `(config?) → { min, max }` | config.karma 기반 업보 범위 계산 |
+| internal | `meetsNonKarmaConditions` | `(conditions, playerState) → boolean` | flag/stage 조건 판정 (karma 제외) |
+| internal | `getKarmaBlockedReason` | `(conditions, playerState) → string` | 업보 조건 미충족 사유 텍스트 생성 |
 | internal | `clamp` / `randomIntInRange` | — | 유틸리티 (combat-engine과 동일) |
 
 **상수:** `STARTING_DECK_RECIPES` (직업별 초기 무기 구성)
@@ -140,8 +143,9 @@
 | export | `setAuthStatus` | `(options) → void` | 인증 화면 상태 표시 |
 | export | `renderSoundControls` | `(bgmVol, sfxVol, onChange?) → void` | 전역 사운드 컨트롤 UI 갱신 |
 | export | `renderLobby` | `(user, currentRun?, options?) → void` | 로비 화면 렌더 (결정/강화 버튼, 닉네임 입력/저장 상태 포함) |
-| export | `renderClassSelection` | `(classCards, options?) → void` | 직업 선택 화면 렌더 |
-| export | `renderStory` | `(renderModel, context) → void` | 스토리/상점 화면 렌더 |
+| export | `renderOriginSelection` | `(originCards, options?) → void` | 출신지 선택 화면 렌더 |
+| export | `renderClassSelection` | `(classCards, options?) → void` | 직업 선택 화면 렌더 (`copyText`, `locked` 지원) |
+| export | `renderStory` | `(renderModel, context) → void` | 스토리/상점 화면 렌더 (karma HUD, choice hint/disabled reason 포함) |
 | export | `renderUpgradeShop` | `(upgradeDefs, userUpgrades, crystals, options?) → void` | 강화 상점 화면 렌더 |
 | export | `showRerollOption` | `(cost, gold, onReroll) → void` | 전투 리롤 버튼/비용 표시 |
 | export | `renderCombat` | `(combatState, currentRun, gameData) → void` | 전투 화면 렌더 (호환 래퍼) |
@@ -153,6 +157,7 @@
 | export | `showToast` | `(message, type?) → void` | 토스트 알림 표시 |
 | internal | `getElements` | `() → Elements` | DOM 요소 캐싱 (싱글턴) |
 | internal | `formatNumber` | `(value) → string` | 숫자 포맷 |
+| internal | `formatSignedNumber` | `(value) → string` | 부호 포함 숫자 포맷 |
 | internal | `clearChildren` | `(element) → void` | 자식 노드 전부 제거 |
 | internal | `createTextElement` | `(tagName, className, text) → Element` | 텍스트 요소 생성 |
 | internal | `createIconFallback` | `(altText, className?) → Element` | 이미지 로드 실패 시 fallback 생성 |
@@ -175,30 +180,27 @@
 
 ---
 
-## 7. `sound-manager.js` — BGM/SFX 제어
+## 7. `sound-manager.js` — 사운드 UI 상태 보존용 임시 스텁
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
-| export | `initSoundManager` | `(soundConfig?) → void` | 사운드 설정 로드 + localStorage 볼륨 복원 |
-| export | `playBGM` | `(trackId) → Promise<void>` | BGM 재생/교체 |
-| export | `stopBGM` | `() → void` | 현재 BGM 정지 |
-| export | `playSFX` | `(sfxId) → void` | 효과음 재생 |
-| export | `setVolume` | `(type, level) → void` | BGM/SFX 볼륨 저장/반영 |
+| export | `initSoundManager` | `(soundConfig?) → void` | 사운드 설정 로드 + localStorage 볼륨 복원 (재생 없음) |
+| export | `playBGM` | `(trackId) → Promise<void>` | 현재 트랙 ID만 기록하는 no-op |
+| export | `stopBGM` | `() → void` | 현재 트랙 ID 초기화 |
+| export | `playSFX` | `(sfxId) → void` | 효과음 재생 no-op |
+| export | `setVolume` | `(type, level) → void` | BGM/SFX 볼륨 상태 저장 |
 | export | `getVolume` | `(type) → number` | 현재 볼륨 조회 |
-| export | `setMuted` | `(nextMuted) → void` | 음소거 상태 저장/반영 |
+| export | `setMuted` | `(nextMuted) → void` | 음소거 상태 저장 |
 | export | `isMuted` | `() → boolean` | 음소거 여부 조회 |
 | internal | `clampVolume` | `(level, fallback) → number` | 볼륨 0~1 정규화 |
 | internal | `getStorage` | `() → Storage\|null` | localStorage 접근 래퍼 |
-| internal | `getEffectiveVolume` | `(type) → number` | 음소거 반영 최종 볼륨 계산 |
-| internal | `persistVolume` / `persistMute` | — | localStorage 저장 |
+| internal | `persistVolume` | `(type, value) → void` | 볼륨 localStorage 저장 |
+| internal | `persistMute` | `() → void` | 음소거 localStorage 저장 |
 | internal | `loadVolumeSettings` | `() → void` | localStorage에서 볼륨/음소거 복원 |
-| internal | `bindUnlockListeners` | `() → void` | 최초 유저 인터랙션 이후 오디오 허용 |
-| internal | `bindVisibilityListener` | `() → void` | 탭 숨김/복귀 시 BGM pause/resume |
-| internal | `fadeOutAudio` | `(audio) → void` | 이전 BGM 페이드 아웃 |
-| internal | `createAudio` | `(path, options?) → HTMLAudioElement\|null` | Audio 생성 |
-| internal | `applyBgmVolume` | `() → void` | 현재 BGM 볼륨 재적용 |
+ 
+**비고:** 실제 오디오 재생은 자산 교체 전까지 비활성화. UI 슬라이더/음소거 토글만 유지합니다.
 
-**내부 상태:** `state` (config/currentTrackId/currentBgmAudio/volume/muted)
+**내부 상태:** `state` (config/currentTrackId/volume/muted)
 
 ---
 
@@ -245,7 +247,13 @@
 | internal | `cancelQueuedAutoSave` | `() → void` | 예약 저장 취소 |
 | internal | `deactivateCurrentRun` | `(overrides?) → void` | 현재 런 비활성화 |
 | internal | `failToLobby` | `(message, error?) → void` | 오류 시 로비 복귀 |
+| internal | `formatSignedValue` | `(value) → string` | 업보 부호 포함 문자열 생성 |
 | internal | `buildClassSelectionModels` | `(gameData) → ClassCard[]` | 직업 선택 카드 모델 생성 |
+| internal | `buildOriginSelectionModels` | `(gameData) → OriginCard[]` | 출신지 선택 카드 모델 생성 |
+| internal | `getSelectedOrigin` | `(gameData, currentRun?) → Origin\|null` | 현재 선택된 출신지 데이터 조회 |
+| internal | `getClassSelectionCopy` | `(gameData, currentRun?) → string` | 선택된 출신지 기준 직업 선택 안내문 생성 |
+| internal | `renderOriginSelectionState` | `() → void` | 현재 상태 기준 출신지 선택 화면 렌더 |
+| internal | `renderClassSelectionState` | `() → void` | 현재 상태 기준 직업 선택 화면 렌더 |
 | internal | `getLoginErrorMessage` | `(error) → string` | 로그인 에러 메시지 변환 |
 | internal | `getLoadErrorMessage` | `(error) → string` | 데이터 로드 에러 메시지 변환 |
 | internal | `getStoryNote` | `(renderModel) → string` | 스토리 노트 추출 |
@@ -266,6 +274,7 @@
 | internal | `restoreCombatFromRun` | `(currentRun) → boolean` | 저장된 전투 컨텍스트로 COMBAT 화면 복구 |
 | internal | `restoreActiveRun` | `(currentRun) → boolean` | currentRun 기반 런 복구 |
 | internal | `handleStartRun` | `() → void` | "게임 시작"/"런 이어하기" 처리 |
+| internal | `handleOriginSelect` | `(originId) → void` | 출신지 선택 → 임시 런 저장 → CLASS_SELECT 전환 |
 | internal | `handleClassSelect` | `(classId) → void` | 직업 선택 → 런 생성 → STORY |
 | internal | `handleUpgrade` | `() → void` | LOBBY → UPGRADE 전환 |
 | internal | `handleUpgradePurchase` | `(upgradeId) → Promise<void>` | 강화 구매/저장/롤백 처리 |
@@ -317,3 +326,4 @@ graph LR
 | 2026-03-09 | Phase 6~8 반영: 강화 상점, 전투 연출/복구, 콘텐츠 확장 기준으로 문서 갱신 |
 | 2026-03-09 | Phase 9~13 반영: 전투 리롤/시너지, 사운드, 이미지 placeholder, localStorage 백업, Firestore Rules 기준으로 문서 갱신 |
 | 2026-03-09 | Phase 14 반영: Firestore persistence, 병렬 데이터 로드, 부트 progress UI 기준으로 문서 갱신 |
+| 2026-03-13 | Karma/Origin/Encounter Story 반영: ORIGIN_SELECT, karma 조건/효과, npc/quest 인카운트, origins GameData 기준으로 문서 갱신 |

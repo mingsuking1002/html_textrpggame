@@ -18,6 +18,7 @@ function pushError(errors, message) {
 
 function validate() {
   const classes = readJson('classes.json');
+  const origins = readJson('origins.json');
   const symbols = readJson('symbols.json');
   const monsters = readJson('monsters.json');
   const encounters = readJson('encounters.json');
@@ -43,6 +44,8 @@ function validate() {
   });
 
   Object.entries(encounters).forEach(([encounterId, encounterData]) => {
+    const encounterType = String(encounterData.type || '').toLowerCase();
+
     (encounterData.monsters || []).forEach((monsterId) => {
       if (!hasKey(monsters, monsterId)) {
         pushError(errors, `encounters.${encounterId}.monsters references missing monster: ${monsterId}`);
@@ -51,6 +54,10 @@ function validate() {
 
     if (encounterData.storyNodeId && !hasKey(story, encounterData.storyNodeId)) {
       pushError(errors, `encounters.${encounterId}.storyNodeId references missing story node: ${encounterData.storyNodeId}`);
+    }
+
+    if (!['combat', 'reward'].includes(encounterType) && !encounterData.storyNodeId) {
+      pushError(errors, `encounters.${encounterId} (${encounterType || 'unknown'}) requires storyNodeId`);
     }
   });
 
@@ -90,6 +97,7 @@ function validate() {
 
   console.log('validate-gamedata: OK');
   console.log(`classes=${Object.keys(classes).length}`);
+  console.log(`origins=${Object.keys(origins).length}`);
   console.log(`symbols=${Object.keys(symbols).length}`);
   console.log(`monsters=${Object.keys(monsters).length}`);
   console.log(`encounters=${Object.keys(encounters).length}`);

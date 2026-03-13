@@ -3,120 +3,165 @@
     "name": "낡은 검",
     "type": "attack",
     "value": 4,
-    "rarity": 1,
+    "rarity": "1",
     "classTag": "sword",
-    "icon": "/assets/images/items/sword.webp"
+    "icon": "/assets/images/items/sword.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "shield": {
     "name": "나무 방패",
     "type": "defense",
     "value": 3,
-    "rarity": 1,
+    "rarity": "1",
     "classTag": "shield",
-    "icon": "/assets/images/items/shield.webp"
+    "icon": "/assets/images/items/shield.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "potion": {
     "name": "포션",
     "type": "heal",
     "value": 2,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "potion",
-    "icon": "/assets/images/items/potion.webp"
+    "icon": "/assets/images/items/potion.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "mace": {
     "name": "철퇴",
     "type": "attack",
     "value": 6,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "mace",
-    "icon": "/assets/images/items/mace.webp"
+    "icon": "/assets/images/items/mace.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "hammer": {
     "name": "전쟁 망치",
     "type": "attack",
     "value": 8,
-    "rarity": 3,
+    "rarity": "3",
     "classTag": "hammer",
-    "icon": "/assets/images/items/hammer.webp"
+    "icon": "/assets/images/items/hammer.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "bow": {
     "name": "사냥꾼의 활",
     "type": "attack",
     "value": 5,
-    "rarity": 1,
+    "rarity": "1",
     "classTag": "bow",
-    "icon": "/assets/images/items/bow.webp"
+    "icon": "/assets/images/items/bow.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "crossbow": {
     "name": "석궁",
     "type": "attack",
     "value": 7,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "crossbow",
-    "icon": "/assets/images/items/crossbow.webp"
+    "icon": "/assets/images/items/crossbow.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "dagger": {
     "name": "단검",
     "type": "attack",
     "value": 3,
-    "rarity": 1,
+    "rarity": "1",
     "classTag": "dagger",
-    "icon": "/assets/images/items/dagger.webp"
+    "icon": "/assets/images/items/dagger.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "spear": {
     "name": "창",
     "type": "attack",
     "value": 6,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "spear",
-    "icon": "/assets/images/items/spear.webp"
+    "icon": "/assets/images/items/spear.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "staff": {
     "name": "마법 지팡이",
     "type": "attack",
     "value": 7,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "staff",
-    "icon": "/assets/images/items/staff.webp"
+    "icon": "/assets/images/items/staff.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "helmet": {
     "name": "철 투구",
     "type": "defense",
     "value": 4,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "helmet",
-    "icon": "/assets/images/items/helmet.webp"
+    "icon": "/assets/images/items/helmet.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "armor": {
     "name": "가죽 갑옷",
     "type": "defense",
     "value": 6,
-    "rarity": 3,
+    "rarity": "3",
     "classTag": "armor",
-    "icon": "/assets/images/items/armor.webp"
+    "icon": "/assets/images/items/armor.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "herb": {
     "name": "약초",
     "type": "heal",
     "value": 3,
-    "rarity": 1,
+    "rarity": "1",
     "classTag": "herb",
-    "icon": "/assets/images/items/herb.webp"
+    "icon": "/assets/images/items/herb.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "elixir": {
     "name": "엘릭서",
     "type": "heal",
     "value": 8,
-    "rarity": 3,
+    "rarity": "3",
     "classTag": "elixir",
-    "icon": "/assets/images/items/elixir.webp"
+    "icon": "/assets/images/items/elixir.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   },
   "gold_coin": {
     "name": "금화",
     "type": "gold",
     "value": 15,
-    "rarity": 2,
+    "rarity": "2",
     "classTag": "gold",
-    "icon": "/assets/images/items/gold_coin.webp"
+    "icon": "/assets/images/items/gold_coin.webp",
+    "description": "",
+    "tags": [],
+    "isEnabled": true
   }
 }

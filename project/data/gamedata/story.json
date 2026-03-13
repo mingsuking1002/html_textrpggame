@@ -5,6 +5,7 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "숲길로 간다",
         "nextNodeId": "node_forest_entry",
         "conditions": {},
@@ -13,6 +14,7 @@
         }
       },
       {
+        "id": "choice_2",
         "text": "해안길을 택한다",
         "nextNodeId": "node_coast_entry",
         "conditions": {},
@@ -27,15 +29,16 @@
     "title": "어두운 숲",
     "text": "울창한 나무 사이에서 낙엽이 바스락거린다. 숲은 첫 시험을 준비하고 있다.",
     "type": "encounter_trigger",
+    "choices": [],
+    "onEnter": {},
+    "afterEncounter": "node_forest_clearing",
     "encounterPool": [
       "enc_forest_ambush",
       "enc_wolf_pack",
       "enc_treasure",
-      "enc_bandit_road"
-    ],
-    "afterEncounter": "node_forest_clearing",
-    "choices": [],
-    "onEnter": {}
+      "enc_bandit_road",
+      "enc_refugee_crossing"
+    ]
   },
   "node_forest_clearing": {
     "title": "숲속 공터",
@@ -43,18 +46,21 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "깊은 숲으로 전진한다",
         "nextNodeId": "node_deep_forest",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "교차로를 향해 우회한다",
         "nextNodeId": "node_crossroads",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_3",
         "text": "마을로 돌아가 보급한다",
         "nextNodeId": "node_village_return",
         "conditions": {},
@@ -71,12 +77,14 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "숲으로 되돌아간다",
         "nextNodeId": "node_deep_forest",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "해안길로 방향을 튼다",
         "nextNodeId": "node_coast_entry",
         "conditions": {},
@@ -94,12 +102,14 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "상인에게 다가간다",
         "nextNodeId": "node_merchant",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "절벽 동굴을 탐험한다",
         "nextNodeId": "node_cave_entry",
         "conditions": {},
@@ -114,6 +124,26 @@
     "title": "떠돌이 상인",
     "text": "상인은 무기를 정리하며 오늘은 계약서도 준비해 두었다고 말한다.",
     "type": "shop",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "상단 계약서를 쓴다",
+        "nextNodeId": "node_crossroads",
+        "conditions": {},
+        "effects": {
+          "addFlag": "merchant_route",
+          "addGold": 40
+        }
+      },
+      {
+        "id": "choice_2",
+        "text": "거래를 마치고 돌아간다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {}
+      }
+    ],
+    "onEnter": {},
     "shopItems": [
       {
         "symbolId": "potion",
@@ -131,38 +161,60 @@
         "symbolId": "crossbow",
         "cost": 50
       }
-    ],
-    "choices": [
-      {
-        "text": "상단 계약서를 쓴다",
-        "nextNodeId": "node_crossroads",
-        "conditions": {},
-        "effects": {
-          "addFlag": "merchant_route",
-          "addGold": 40
-        }
-      },
-      {
-        "text": "거래를 마치고 돌아간다",
-        "nextNodeId": "$return",
-        "conditions": {},
-        "effects": {}
-      }
-    ],
-    "onEnter": {}
+    ]
   },
   "node_deep_forest": {
     "title": "깊은 숲",
     "text": "숲이 점점 어두워진다. 오래된 무덤과 오크의 흔적, 그리고 먼 불빛이 동시에 보인다.",
     "type": "encounter_trigger",
+    "choices": [],
+    "onEnter": {},
+    "afterEncounter": "node_crossroads",
     "encounterPool": [
       "enc_skeleton_tomb",
       "enc_orc_camp",
       "enc_healing_spring",
       "enc_merchant"
+    ]
+  },
+  "node_refugee_crossing": {
+    "title": "피난민 행렬",
+    "text": "짐수레를 끄는 피난민들이 안전한 길을 묻는다. 당신의 한마디가 이들의 하루를 바꿀 수 있다.",
+    "type": "narrative",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "식량을 나눠 주고 안전한 길까지 안내한다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {
+          "addFlag": "helped_refugees",
+          "addGold": 10,
+          "addKarma": 15
+        },
+        "karmaHint": "선행"
+      },
+      {
+        "id": "choice_2",
+        "text": "지도만 건네고 갈 길을 간다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {},
+        "karmaHint": "중립"
+      },
+      {
+        "id": "choice_3",
+        "text": "수레를 뒤져 값나가는 물건을 챙긴다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {
+          "addFlag": "robbed_refugees",
+          "addGold": 35,
+          "addKarma": -15
+        },
+        "karmaHint": "악행"
+      }
     ],
-    "afterEncounter": "node_crossroads",
-    "choices": [],
     "onEnter": {}
   },
   "node_crossroads": {
@@ -171,18 +223,21 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "폐허를 조사한다",
         "nextNodeId": "node_abandoned_ruins",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "용의 관문으로 향한다",
         "nextNodeId": "node_dragon_gate",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_3",
         "text": "동굴 심부로 내려간다",
         "nextNodeId": "node_cave_depths",
         "conditions": {
@@ -197,15 +252,15 @@
     "title": "동굴 입구",
     "text": "서늘한 공기가 흐르는 동굴 입구에는 부서진 상자와 낡은 모루가 흩어져 있다.",
     "type": "encounter_trigger",
+    "choices": [],
+    "onEnter": {},
+    "afterEncounter": "node_cave_depths",
     "encounterPool": [
       "enc_wolf_pack",
       "enc_mystic_chest",
       "enc_wandering_smith",
       "enc_bandit_road"
-    ],
-    "afterEncounter": "node_cave_depths",
-    "choices": [],
-    "onEnter": {}
+    ]
   },
   "node_cave_depths": {
     "title": "동굴 깊은 곳",
@@ -213,12 +268,14 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "리치의 제단으로 내려간다",
         "nextNodeId": "node_lich_battle",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "유물을 챙기고 귀환한다",
         "nextNodeId": "node_ending_cave_explorer",
         "conditions": {
@@ -229,6 +286,7 @@
         }
       },
       {
+        "id": "choice_3",
         "text": "지상으로 돌아가 최종 결전을 준비한다",
         "nextNodeId": "node_final_choice",
         "conditions": {},
@@ -243,6 +301,25 @@
     "title": "떠돌이 대장간",
     "text": "대장장이는 모루를 두드리며 전장에 들고 갈 만한 장비를 내민다.",
     "type": "shop",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "장비를 손질받고 떠난다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {
+          "heal": 6
+        }
+      },
+      {
+        "id": "choice_2",
+        "text": "그냥 떠난다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {}
+      }
+    ],
+    "onEnter": {},
     "shopItems": [
       {
         "symbolId": "spear",
@@ -260,36 +337,52 @@
         "symbolId": "staff",
         "cost": 55
       }
-    ],
-    "choices": [
-      {
-        "text": "장비를 손질받고 떠난다",
-        "nextNodeId": "$return",
-        "conditions": {},
-        "effects": {
-          "heal": 6
-        }
-      },
-      {
-        "text": "그냥 떠난다",
-        "nextNodeId": "$return",
-        "conditions": {},
-        "effects": {}
-      }
-    ],
-    "onEnter": {}
+    ]
   },
   "node_abandoned_ruins": {
     "title": "버려진 폐허",
     "text": "무너진 탑과 깨진 석상이 널려 있다. 이곳에는 강한 적과 값진 보상이 함께 잠들어 있다.",
     "type": "encounter_trigger",
+    "choices": [],
+    "onEnter": {},
+    "afterEncounter": "node_final_choice",
     "encounterPool": [
       "enc_golem_ruins",
       "enc_dark_mage",
-      "enc_wandering_smith"
+      "enc_wandering_smith",
+      "enc_missing_scout"
+    ]
+  },
+  "node_missing_scout": {
+    "title": "실종된 정찰병",
+    "text": "무너진 벽 뒤에서 부상당한 정찰병이 손을 든다. 그는 마을까지 데려다 달라고 부탁한다.",
+    "type": "narrative",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "부상자를 업고 안전지대까지 데려간다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {
+          "addFlag": "rescued_scout",
+          "heal": 8,
+          "addKarma": 10
+        },
+        "karmaHint": "선행"
+      },
+      {
+        "id": "choice_2",
+        "text": "길값을 받고 안내한다",
+        "nextNodeId": "$return",
+        "conditions": {},
+        "effects": {
+          "addFlag": "taxed_scout",
+          "addGold": 25,
+          "addKarma": -5
+        },
+        "karmaHint": "악행"
+      }
     ],
-    "afterEncounter": "node_final_choice",
-    "choices": [],
     "onEnter": {}
   },
   "node_final_choice": {
@@ -298,12 +391,14 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "드래곤에게 도전한다",
         "nextNodeId": "node_dragon_gate",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "리치를 추적한다",
         "nextNodeId": "node_cave_depths",
         "conditions": {
@@ -312,12 +407,39 @@
         "effects": {}
       },
       {
+        "id": "choice_3",
         "text": "상단과 손잡고 부를 택한다",
         "nextNodeId": "node_ending_merchant",
         "conditions": {
           "hasFlag": "merchant_route"
         },
         "effects": {}
+      },
+      {
+        "id": "choice_4",
+        "text": "피난민이 알려 준 비밀길로 접근한다",
+        "nextNodeId": "node_dragon_gate",
+        "conditions": {
+          "minKarma": 10
+        },
+        "effects": {
+          "addFlag": "guardian_route",
+          "heal": 8
+        },
+        "karmaHint": "선행"
+      },
+      {
+        "id": "choice_5",
+        "text": "암거래상 통로로 잠입한다",
+        "nextNodeId": "node_dragon_gate",
+        "conditions": {
+          "maxKarma": -10
+        },
+        "effects": {
+          "addFlag": "smuggler_route",
+          "addGold": 40
+        },
+        "karmaHint": "악행"
       }
     ],
     "onEnter": {}
@@ -328,18 +450,21 @@
     "type": "narrative",
     "choices": [
       {
+        "id": "choice_1",
         "text": "드래곤에게 도전한다",
         "nextNodeId": "node_dragon_battle",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_2",
         "text": "아직 준비가 부족하다",
         "nextNodeId": "node_final_choice",
         "conditions": {},
         "effects": {}
       },
       {
+        "id": "choice_3",
         "text": "전투 대신 상단의 길을 택한다",
         "nextNodeId": "node_ending_merchant",
         "conditions": {
@@ -354,64 +479,64 @@
     "title": "최종 전투: 드래곤",
     "text": "드래곤이 포효하며 하늘을 뒤흔든다.",
     "type": "combat",
+    "choices": [],
+    "onEnter": {},
     "combatMonster": "dragon",
     "onWin": "node_ending_dragon_slayer",
-    "onLose": "node_ending_death",
-    "choices": [],
-    "onEnter": {}
+    "onLose": "node_ending_death"
   },
   "node_lich_battle": {
     "title": "금기의 제단",
     "text": "리치가 망자의 왕관을 들고 당신을 맞이한다.",
     "type": "combat",
+    "choices": [],
+    "onEnter": {},
     "combatMonster": "lich",
     "onWin": "node_lich_ending",
-    "onLose": "node_ending_death",
-    "choices": [],
-    "onEnter": {}
+    "onLose": "node_ending_death"
   },
   "node_ending_dragon_slayer": {
     "title": "엔딩: 용을 무찌른 자",
     "text": "",
     "type": "ending",
-    "endingId": "ending_dragon_slayer",
     "choices": [],
     "onEnter": {
       "addFlag": "defeated_dragon"
-    }
+    },
+    "endingId": "ending_dragon_slayer"
   },
   "node_ending_merchant": {
     "title": "엔딩: 상인의 왕",
     "text": "",
     "type": "ending",
-    "endingId": "ending_merchant_king",
     "choices": [],
-    "onEnter": {}
+    "onEnter": {},
+    "endingId": "ending_merchant_king"
   },
   "node_ending_death": {
     "title": "엔딩: 여정의 끝",
     "text": "",
     "type": "ending",
-    "endingId": "ending_death",
     "choices": [],
-    "onEnter": {}
+    "onEnter": {},
+    "endingId": "ending_death"
   },
   "node_ending_cave_explorer": {
     "title": "엔딩: 동굴 탐험가",
     "text": "",
     "type": "ending",
-    "endingId": "ending_cave_explorer",
     "choices": [],
-    "onEnter": {}
+    "onEnter": {},
+    "endingId": "ending_cave_explorer"
   },
   "node_lich_ending": {
     "title": "엔딩: 리치 사냥꾼",
     "text": "",
     "type": "ending",
-    "endingId": "ending_lich_slayer",
     "choices": [],
     "onEnter": {
       "addFlag": "defeated_lich"
-    }
+    },
+    "endingId": "ending_lich_slayer"
   }
 }

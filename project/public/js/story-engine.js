@@ -19,6 +19,8 @@ const STARTING_DECK_RECIPES = Object.freeze({
     ['dagger', 2],
   ]),
 });
+const DEFAULT_KARMA_MIN = -100;
+const DEFAULT_KARMA_MAX = 100;
 
 function cloneJsonCompatible(value) {
   return JSON.parse(JSON.stringify(value));
@@ -103,10 +105,22 @@ function calculateUpgradeBonuses(config = {}, userUpgrades = {}) {
   return bonuses;
 }
 
+function resolveKarmaBounds(config = null) {
+  const rawMin = toFiniteNumber(config?.karma?.minKarma, DEFAULT_KARMA_MIN);
+  const rawMax = toFiniteNumber(config?.karma?.maxKarma, DEFAULT_KARMA_MAX);
+
+  return {
+    min: Math.min(rawMin, rawMax),
+    max: Math.max(rawMin, rawMax),
+  };
+}
+
 export function createInactiveRunState(overrides = {}) {
   return {
     isActive: false,
     classId: null,
+    originId: null,
+    karma: 0,
     stage: 1,
     hp: 0,
     maxHp: 0,
@@ -132,6 +146,8 @@ export function normalizeRunState(playerState = null) {
   return {
     isActive: Boolean(playerState.isActive),
     classId: playerState.classId || null,
+    originId: playerState.originId || null,
+    karma: clamp(toFiniteNumber(playerState.karma, 0), DEFAULT_KARMA_MIN, DEFAULT_KARMA_MAX),
     stage: Math.max(1, toFiniteNumber(playerState.stage, 1)),
     hp,
     maxHp: Math.max(0, maxHp),
@@ -167,8 +183,21 @@ export function buildInitialDeck(classId, bagCapacity) {
   return deck.slice(0, bagCapacity);
 }
 
-export function createInitialRun(classId, config, userUpgrades = {}) {
+export function createInitialRun(classId, config, userUpgrades = {}, options = {}) {
   const upgradeBonuses = calculateUpgradeBonuses(config, userUpgrades);
+  const karmaBounds = resolveKarmaBounds(config);
+  const originData = options?.originData && typeof options.originData === 'object'
+    ? options.originData
+    : null;
+  const originId = options?.originId || null;
+  const initialKarma = clamp(
+    toFiniteNumber(
+      originData?.baseKarma,
+      toFiniteNumber(options?.baseKarma, toFiniteNumber(config?.karma?.initialKarma, 0)),
+    ),
+    karmaBounds.min,
+    karmaBounds.max,
+  );
   const normalizedConfig = {
     startHp: Math.max(0, toFiniteNumber(config?.startHp, 0)) + upgradeBonuses.bonusHp,
     startGold: Math.max(0, toFiniteNumber(config?.startGold, 0)) + upgradeBonuses.bonusGold,
@@ -178,6 +207,8 @@ export function createInitialRun(classId, config, userUpgrades = {}) {
   return {
     isActive: true,
     classId,
+    originId,
+    karma: initialKarma,
     stage: 1,
     hp: normalizedConfig.startHp,
     maxHp: normalizedConfig.startHp,
@@ -212,6 +243,26 @@ export function pushReturnNode(playerState, nodeId) {
 
 export function meetsConditions(conditions = {}, playerState) {
   const runState = normalizeRunState(playerState);
+
+  if (!meetsNonKarmaConditions(conditions, runState)) {
+    return false;
+  }
+
+  if (conditions.minKarma !== undefined && conditions.minKarma !== null
+    && runState.karma < toFiniteNumber(conditions.minKarma, runState.karma)) {
+    return false;
+  }
+
+  if (conditions.maxKarma !== undefined && conditions.maxKarma !== null
+    && runState.karma > toFiniteNumber(conditions.maxKarma, runState.karma)) {
+    return false;
+  }
+
+  return true;
+}
+
+function meetsNonKarmaConditions(conditions = {}, playerState) {
+  const runState = normalizeRunState(playerState);
   const flags = new Set(runState.flags);
   const hasFlags = toArray(conditions.hasFlag);
   const requiredFlags = toArray(conditions.requiredFlags);
@@ -235,9 +286,30 @@ export function meetsConditions(conditions = {}, playerState) {
   return true;
 }
 
-export function applyEffects(effects = {}, playerState) {
+function getKarmaBlockedReason(conditions = {}, playerState) {
+  const runState = normalizeRunState(playerState);
+
+  if (conditions.minKarma !== undefined && conditions.minKarma !== null) {
+    const minKarma = toFiniteNumber(conditions.minKarma, runState.karma);
+    if (runState.karma < minKarma) {
+      return `업보 ${minKarma} 이상 필요`;
+    }
+  }
+
+  if (conditions.maxKarma !== undefined && conditions.maxKarma !== null) {
+    const maxKarma = toFiniteNumber(conditions.maxKarma, runState.karma);
+    if (runState.karma > maxKarma) {
+      return `업보 ${maxKarma} 이하 필요`;
+    }
+  }
+
+  return '';
+}
+
+export function applyEffects(effects = {}, playerState, options = {}) {
   const nextState = normalizeRunState(playerState);
   const flags = new Set(nextState.flags);
+  const karmaBounds = resolveKarmaBounds(options?.config);
 
   toArray(effects.addFlag).forEach((flag) => {
     flags.add(flag);
@@ -268,6 +340,19 @@ export function applyEffects(effects = {}, playerState) {
     nextState.stage = Math.max(1, nextState.stage + stageDelta);
   }
 
+  const karmaDelta = toFiniteNumber(effects.addKarma, 0);
+  if (karmaDelta !== 0) {
+    nextState.karma = clamp(nextState.karma + karmaDelta, karmaBounds.min, karmaBounds.max);
+  }
+
+  if (effects.setKarma !== undefined) {
+    nextState.karma = clamp(
+      toFiniteNumber(effects.setKarma, nextState.karma),
+      karmaBounds.min,
+      karmaBounds.max,
+    );
+  }
+
   return nextState;
 }
 
@@ -284,17 +369,28 @@ export function loadNode(nodeId, storyData, playerState) {
 
   const runState = normalizeRunState(playerState);
   const choices = Array.isArray(node.choices)
-    ? node.choices.filter((choice) => {
-      if (!meetsConditions(choice.conditions, runState)) {
-        return false;
+    ? node.choices.map((choice) => {
+      const nextNodeId = choice?.nextNodeId;
+      const canResolveTarget = nextNodeId === '$return'
+        ? runState.encounterHistory.length > 0
+        : Boolean(storyData?.[nextNodeId]);
+
+      if (!canResolveTarget) {
+        return null;
       }
 
-      if (choice.nextNodeId === '$return') {
-        return runState.encounterHistory.length > 0;
+      if (!meetsNonKarmaConditions(choice.conditions, runState)) {
+        return null;
       }
 
-      return Boolean(storyData?.[choice.nextNodeId]);
-    }).map((choice) => cloneJsonCompatible(choice))
+      const normalizedChoice = cloneJsonCompatible(choice);
+      normalizedChoice.isAvailable = meetsConditions(choice.conditions, runState);
+      normalizedChoice.disabledReason = normalizedChoice.isAvailable
+        ? ''
+        : getKarmaBlockedReason(choice.conditions, runState);
+      normalizedChoice.karmaHint = normalizedChoice.karmaHint || '';
+      return normalizedChoice;
+    }).filter(Boolean)
     : [];
 
   return {
@@ -314,14 +410,14 @@ export function loadNode(nodeId, storyData, playerState) {
   };
 }
 
-export function applyChoice(choice, playerState) {
+export function applyChoice(choice, playerState, options = {}) {
   const runState = normalizeRunState(playerState);
 
   if (!meetsConditions(choice?.conditions, runState)) {
     throw new Error('Choice conditions are not satisfied');
   }
 
-  const updatedState = applyEffects(choice?.effects, runState);
+  const updatedState = applyEffects(choice?.effects, runState, options);
   let nextNodeId = choice?.nextNodeId || null;
 
   if (nextNodeId === '$return') {
@@ -408,7 +504,17 @@ export function rollEncounter(encounterPool, encountersData, playerState, random
       return encounter ? { encounterId, encounter } : null;
     })
     .filter(Boolean)
-    .filter(({ encounter }) => meetsConditions(encounter.conditions, playerState));
+    .filter(({ encounterId, encounter }) => {
+      const encounterType = String(encounter?.type || '').toLowerCase();
+      const needsStoryNode = !['combat', 'reward'].includes(encounterType);
+
+      if (needsStoryNode && !encounter?.storyNodeId) {
+        console.warn(`[story-engine] Skip encounter without storyNodeId: ${encounterId}`);
+        return false;
+      }
+
+      return meetsConditions(encounter.conditions, playerState);
+    });
 
   if (candidates.length === 0) {
     return null;

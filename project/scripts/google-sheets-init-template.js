@@ -63,6 +63,11 @@ function isDefaultSheetTitle(title) {
   return ['Sheet1', '시트1', 'Sheet', '시트'].includes(String(title || '').trim());
 }
 
+function findExistingSheet(definition, sheets) {
+  const acceptedTitles = [definition.title, ...(definition.aliases || [])];
+  return sheets.find((sheet) => acceptedTitles.includes(sheet?.properties?.title));
+}
+
 async function detectExistingHeaders(accessToken, spreadsheetId, sheetTitle) {
   const range = `${quoteSheetTitle(sheetTitle)}!1:1`;
   const result = await getSheetValues(accessToken, spreadsheetId, range);
@@ -113,6 +118,26 @@ async function main() {
 
   for (const template of PROJECT_PH_SHEET_DEFINITIONS) {
     if (existingTitles.has(template.title)) {
+      continue;
+    }
+
+    const matchedSheet = findExistingSheet(template, sheets);
+    if (matchedSheet?.properties?.sheetId && matchedSheet?.properties?.title) {
+      requests.push({
+        updateSheetProperties: {
+          properties: {
+            sheetId: matchedSheet.properties.sheetId,
+            title: template.title,
+            gridProperties: {
+              frozenRowCount: 1,
+            },
+          },
+          fields: 'title,gridProperties.frozenRowCount',
+        },
+      });
+      existingTitles.delete(matchedSheet.properties.title);
+      existingTitles.add(template.title);
+      reusedTitles.push(`${matchedSheet.properties.title} → ${template.title}`);
       continue;
     }
 

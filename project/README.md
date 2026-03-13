@@ -47,6 +47,7 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - `node scripts/google-sheets-init-template.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 Project PH용 시트 탭/헤더 템플릿을 한 번에 생성할 수 있습니다.
 - `node scripts/google-sheets-export-gamedata.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 현재 `data/gamedata/*.json`과 시작 덱 레시피를 시트 표 형태로 내보낼 수 있습니다.
 - `node scripts/google-sheets-upsert-class.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>" --id gunner --name "거너"`로 클래스 관련 탭에 더미 직업 1개를 추가/갱신할 수 있습니다.
+- Google Sheets 탭명 규칙은 `PascalCase + Data`이며, `story_choices` 같은 legacy snake_case 탭은 템플릿/내보내기 실행 시 `StoryChoiceData`처럼 자동 치환됩니다.
 - `firebase deploy --only firestore:rules`로 Firestore Rules를 별도 배포해야 보안 규칙이 반영됩니다.
 - 랭킹 조회는 `orderBy("payout", "desc").limit(10)` 쿼리를 사용하므로 Firestore 인덱스가 필요할 수 있습니다.
 - 전투/정산/강화 구매 로직은 클라이언트 구현이므로 실서비스에서는 Firestore Rules 또는 서버 검증이 추가되어야 합니다.

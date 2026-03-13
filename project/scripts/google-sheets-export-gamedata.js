@@ -94,6 +94,11 @@ function getColumnLetter(index) {
   return columnName || 'A';
 }
 
+function findExistingSheet(definition, sheets) {
+  const acceptedTitles = [definition.title, ...(definition.aliases || [])];
+  return sheets.find((sheet) => acceptedTitles.includes(sheet?.properties?.title));
+}
+
 function loadStartingDeckRecipes() {
   const source = fs.readFileSync(STORY_ENGINE_PATH, 'utf8');
   const blockMatch = source.match(/const STARTING_DECK_RECIPES = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
@@ -318,6 +323,25 @@ async function ensureSchema(accessToken, spreadsheetId, metadata) {
       continue;
     }
 
+    const matchedSheet = findExistingSheet(definition, sheets);
+    if (matchedSheet?.properties?.sheetId && matchedSheet?.properties?.title) {
+      requests.push({
+        updateSheetProperties: {
+          properties: {
+            sheetId: matchedSheet.properties.sheetId,
+            title: definition.title,
+            gridProperties: {
+              frozenRowCount: 1,
+            },
+          },
+          fields: 'title,gridProperties.frozenRowCount',
+        },
+      });
+      existingTitles.delete(matchedSheet.properties.title);
+      existingTitles.add(definition.title);
+      continue;
+    }
+
     requests.push({
       addSheet: {
         properties: {
@@ -365,7 +389,7 @@ async function main() {
       session.accessToken,
       spreadsheetId,
       definition,
-      rowsBySheet[definition.title] || [],
+      rowsBySheet[definition.key] || [],
     );
   }
 
@@ -375,8 +399,8 @@ async function main() {
   console.log(`   신규 탭 수:   ${addedSheetCount}`);
   console.log(`   동기화 탭 수: ${PROJECT_PH_SHEET_DEFINITIONS.length}\n`);
 
-  Object.entries(rowsBySheet).forEach(([title, rows]) => {
-    console.log(`   - ${title}: ${rows.length} row(s)`);
+  PROJECT_PH_SHEET_DEFINITIONS.forEach((definition) => {
+    console.log(`   - ${definition.title}: ${(rowsBySheet[definition.key] || []).length} row(s)`);
   });
 }
 

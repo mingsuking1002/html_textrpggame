@@ -1,7 +1,7 @@
 /**
  * google-sheets-upsert-class.js
  * ─────────────────────────────
- * Project PH 클래스 관련 탭(classes / class_weapons / class_starting_deck)에
+ * Project PH 클래스 관련 탭(ClassData / ClassWeaponData / ClassStartingData)에
  * 지정한 직업 1개를 upsert한다.
  *
  * 사용 예:
@@ -21,6 +21,7 @@ const {
   quoteSheetTitle,
   updateSheetValues,
 } = require('./google-sheets-client');
+const { PROJECT_PH_SHEET_TITLES } = require('./google-sheets-project-ph-schema');
 
 function parseArgs(argv) {
   const args = {};
@@ -122,9 +123,9 @@ async function main() {
   const weapons = toList(args.weapons || 'crossbow,dagger');
   const deck = parseDeck(args.deck || 'crossbow:2,dagger:2');
 
-  const classesRows = await readWholeSheet(session.accessToken, spreadsheetSource, 'classes');
-  const classWeaponsRows = await readWholeSheet(session.accessToken, spreadsheetSource, 'class_weapons');
-  const classDeckRows = await readWholeSheet(session.accessToken, spreadsheetSource, 'class_starting_deck');
+  const classesRows = await readWholeSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.classes);
+  const classWeaponsRows = await readWholeSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.class_weapons);
+  const classDeckRows = await readWholeSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.class_starting_deck);
 
   const classesHeader = classesRows[0] || ['id', 'name', 'icon', 'description', 'base_hp', 'base_gold', 'deck_size', 'theme_color', 'is_enabled'];
   const classWeaponsHeader = classWeaponsRows[0] || ['class_id', 'symbol_id', 'sort_order'];
@@ -154,9 +155,9 @@ async function main() {
     filteredDeck.push([classId, entry.symbolId, entry.count, entry.sortOrder, args.source || 'manual-dummy']);
   });
 
-  await overwriteSheet(session.accessToken, spreadsheetSource, 'classes', [classesHeader, ...filteredClasses]);
-  await overwriteSheet(session.accessToken, spreadsheetSource, 'class_weapons', [classWeaponsHeader, ...filteredWeapons]);
-  await overwriteSheet(session.accessToken, spreadsheetSource, 'class_starting_deck', [classDeckHeader, ...filteredDeck]);
+  await overwriteSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.classes, [classesHeader, ...filteredClasses]);
+  await overwriteSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.class_weapons, [classWeaponsHeader, ...filteredWeapons]);
+  await overwriteSheet(session.accessToken, spreadsheetSource, PROJECT_PH_SHEET_TITLES.class_starting_deck, [classDeckHeader, ...filteredDeck]);
 
   console.log('\n✅ Class upsert complete\n');
   console.log(`   classId: ${classId}`);

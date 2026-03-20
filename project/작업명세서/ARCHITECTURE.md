@@ -74,6 +74,7 @@
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
 | export | `spin` | `(deck, symbolsData, options?) → SpinResult` | 룰렛 스핀 실행 (`typeCounts`, `synergies`, `finalTotals` 포함) |
+| export | `buildReelDisplay` | `(spinResult, deck, symbolsData, reelRows?, randomFn?) → ReelDisplay` | 3x3 파칭코 릴 표시용 결과 매트릭스 생성 |
 | export | `calculateSynergies` | `(spinEntries, synergyDefs) → SynergyResult[]` | 시너지 발동 목록 계산 |
 | export | `calculateDamage` | `(attack, defense, armorConstant) → number` | 데미지 계산 (순수 함수) |
 | export | `executeCombatRound` | `(params) → RoundResult` | 전투 1라운드 실행 (스핀/preview 확정→데미지→적 공격→승패) |
@@ -91,6 +92,7 @@
 | internal | `randomIntInRange` | `(min, max, randomFn?) → number` | 범위 내 정수 난수 |
 | internal | `getFilledDeck` | `(deck) → Symbol[]` | 비어있지 않은 슬롯만 필터 |
 | internal | `buildSpinEntry` | `(symbolId, symbolsData) → SpinEntry` | 스핀 결과 엔트리 생성 |
+| internal | `normalizeDisplayEntry` | `(entry, symbolsData) → SpinEntry` | 저장/미리보기 엔트리를 릴 표시용 엔트리로 정규화 |
 | internal | `createEvent` | `(type, message, extra?) → Event` | 전투 이벤트 로그 생성 |
 
 ---
@@ -99,7 +101,7 @@
 
 | 구분 | 함수명 | 시그니처 | 설명 |
 |------|--------|----------|------|
-| export | `createInitialRun` | `(classId, config, userUpgrades?, options?) → RunState` | 새 런 상태 생성 (직업 선택 후, 출신지/업보/영구 강화 보너스 반영) |
+| export | `createInitialRun` | `(classId, config, userUpgrades?, options?) → RunState` | 새 런 상태 생성 (직업 선택 후, 출신지/업보/영구 강화/시작 노드 반영) |
 | export | `createInactiveRunState` | `(overrides?) → RunState` | isActive=false 런 상태 |
 | export | `normalizeRunState` | `(playerState?) → RunState` | 불완전 런 상태 정규화 |
 | export | `loadNode` | `(nodeId, storyData, playerState) → RenderModel` | 스토리 노드를 렌더 모델로 로드 |
@@ -109,7 +111,7 @@
 | export | `checkEnding` | `(endingsData, playerState) → EndingId\|null` | 엔딩 조건 체크 |
 | export | `resolveEndingId` | `(requestedId, endingsData, playerState, fallback?) → EndingId` | 엔딩 ID 확정 (조건 불충족 시 fallback) |
 | export | `calculateEndingOutcome` | `(endingId, endingsData, playerState) → EndingOutcome` | 엔딩 결과 (보상/랭킹) 계산 |
-| export | `buildInitialDeck` | `(classId, bagCapacity) → Deck` | 직업별 초기 덱 생성 |
+| export | `buildInitialDeck` | `(classId, bagCapacity, classesData?) → Deck` | `classes.startingDeck` 기반 초기 덱 생성 |
 | export | `meetsConditions` | `(conditions, playerState) → boolean` | 조건 판정 (flags/스테이지/karma) |
 | export | `applyEffects` | `(effects, playerState, options?) → PlayerState` | 효과 적용 (flags/HP/골드/스테이지/karma) |
 | export | `advanceStage` | `(playerState, amount?) → PlayerState` | 스테이지 진행 |
@@ -123,11 +125,11 @@
 | internal | `normalizeCombatContext` | `(combatContext?) → CombatContext\|null` | 저장된 전투 컨텍스트 정규화 |
 | internal | `calculateUpgradeBonuses` | `(config, userUpgrades) → UpgradeBonuses` | 강화 정의 기준 시작 보너스 계산 |
 | internal | `resolveKarmaBounds` | `(config?) → { min, max }` | config.karma 기반 업보 범위 계산 |
+| internal | `normalizeDeckRecipeEntry` | `(entry) → { symbolId, count }` | 시작 덱 레시피 엔트리(배열/객체)를 정규화 |
+| internal | `resolveStartNodeId` | `(config, options) → nodeId` | 출신지/설정 기반 시작 스토리 노드 결정 |
 | internal | `meetsNonKarmaConditions` | `(conditions, playerState) → boolean` | flag/stage 조건 판정 (karma 제외) |
 | internal | `getKarmaBlockedReason` | `(conditions, playerState) → string` | 업보 조건 미충족 사유 텍스트 생성 |
 | internal | `clamp` / `randomIntInRange` | — | 유틸리티 (combat-engine과 동일) |
-
-**상수:** `STARTING_DECK_RECIPES` (직업별 초기 무기 구성)
 
 ---
 
@@ -150,7 +152,7 @@
 | export | `showRerollOption` | `(cost, gold, onReroll) → void` | 전투 리롤 버튼/비용 표시 |
 | export | `renderCombat` | `(combatState, currentRun, gameData) → void` | 전투 화면 렌더 (호환 래퍼) |
 | export | `renderCombatScreen` | `(combatState, currentRun, gameData) → void` | 전투 화면 전체 렌더 (preview/reroll UI 포함) |
-| export | `renderCombatRoundResult` | `(roundResult, combatState, symbolsData) → Promise<void>` | 전투 1라운드 연출 |
+| export | `renderCombatRoundResult` | `(roundResult, combatState, symbolsData, options?) → Promise<void>` | 전투 1라운드 연출 (3x3 릴 애니메이션 포함) |
 | export | `renderCombatVictory` | `(rewardSummary, symbolsData) → void` | 전투 승리 연출 |
 | export | `renderCombatDefeat` | `(player) → void` | 전투 패배 연출 |
 | export | `renderEndingView` | `(screenId, endingState, user) → void` | 엔딩/랭킹/정산 화면 렌더 |
@@ -173,6 +175,9 @@
 | internal | `setEnemyHpBar` | `(currentHp, maxHp, options?) → void` | 적 HP 바 내부 갱신 |
 | internal | `updatePlayerHud` | `(playerState) → void` | 플레이어 전투 HUD 내부 갱신 |
 | internal | `createSpinSlot` | `(entry) → Element` | 스핀 결과 슬롯 카드 생성 |
+| internal | `createPachinkoCell` | `(entry, rowIndex, centerRowIndex) → Element` | 파칭코 릴 셀 생성 |
+| internal | `ensureSpinSummaryHost` | `() → Element` | 릴 아래 요약/시너지 컨테이너 생성/초기화 |
+| internal | `renderPachinkoMachine` | `(spinDetail, deck, symbolsData, reelRows?, options?) → PachinkoView\|null` | 3x3 릴 DOM 생성 |
 | internal | `appendSpinSummary` | `(spinDetail) → void` | 스핀 합계 요약 추가 |
 | internal | `renderCombatLogEntries` | `(logs) → void` | 전투 로그 DOM 렌더 |
 
@@ -327,3 +332,4 @@ graph LR
 | 2026-03-09 | Phase 9~13 반영: 전투 리롤/시너지, 사운드, 이미지 placeholder, localStorage 백업, Firestore Rules 기준으로 문서 갱신 |
 | 2026-03-09 | Phase 14 반영: Firestore persistence, 병렬 데이터 로드, 부트 progress UI 기준으로 문서 갱신 |
 | 2026-03-13 | Karma/Origin/Encounter Story 반영: ORIGIN_SELECT, karma 조건/효과, npc/quest 인카운트, origins GameData 기준으로 문서 갱신 |
+| 2026-03-13 | HardcodeFix/OriginRoute/PachinkoUI 반영: 시작 덱 데이터화, 출신지 시작 노드, 3x3 파칭코 릴 UI 기준으로 문서 갱신 |

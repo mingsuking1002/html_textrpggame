@@ -451,7 +451,14 @@ function getStoryNote(renderModel) {
 
 function buildClassSelectionModels(gameData) {
   return Object.entries(gameData?.classes || {}).map(([classId, classInfo]) => {
-    const deck = buildInitialDeck(classId, gameData?.config?.bagCapacity ?? 20);
+    let deck = [];
+
+    try {
+      deck = buildInitialDeck(classId, gameData?.config?.bagCapacity ?? 20, gameData?.classes);
+    } catch (error) {
+      console.error('[app] Failed to build class preview deck', error);
+    }
+
     const symbolCounts = deck
       .filter((symbolId) => symbolId !== 'empty')
       .reduce((accumulator, symbolId) => {
@@ -469,7 +476,9 @@ function buildClassSelectionModels(gameData) {
       name: classInfo.name || classId,
       icon: classInfo.icon || '',
       weapons: weaponLabels,
-      summary: `시작 덱 ${weaponLabels.join(' · ')}`,
+      summary: weaponLabels.length > 0
+        ? `시작 덱 ${weaponLabels.join(' · ')}`
+        : '시작 덱 데이터 없음',
     };
   });
 }
@@ -1082,66 +1091,69 @@ function handleEncounterTrigger(renderModel, currentRun) {
   }
 
   const progressedRun = advanceStage(currentRun, 1);
+  const encounterType = String(encounter.type || '').toLowerCase();
 
-  if (encounter.type === 'reward') {
-    const { updatedState, rewardSummary } = applyRewardEncounter(
-      encounter,
-      progressedRun,
-    );
-    showToast(formatRewardToast(encounter, rewardSummary, state.gameData?.symbols), 'success');
+  switch (encounterType) {
+    case 'reward': {
+      const { updatedState, rewardSummary } = applyRewardEncounter(
+        encounter,
+        progressedRun,
+      );
+      showToast(formatRewardToast(encounter, rewardSummary, state.gameData?.symbols), 'success');
 
-    if (rewardSummary.skippedSymbols.length > 0) {
-      showToast('가방이 가득 차 일부 보상을 획득하지 못했습니다.', 'info');
+      if (rewardSummary.skippedSymbols.length > 0) {
+        showToast('가방이 가득 차 일부 보상을 획득하지 못했습니다.', 'info');
+      }
+
+      if (!renderModel.afterEncounter) {
+        failToLobby('보상 인카운트 이후 이동할 노드가 없습니다.');
+        return false;
+      }
+
+      const entered = enterStoryNode(renderModel.afterEncounter, updatedState, {
+        screen: AppState.STORY,
+      });
+      if (entered) {
+        void queueAutoSave('reward-encounter', getState().currentRun);
+      }
+      return entered;
     }
 
-    if (!renderModel.afterEncounter) {
-      failToLobby('보상 인카운트 이후 이동할 노드가 없습니다.');
-      return false;
+    case 'combat': {
+      const monsterId = pickEncounterMonsterId(encounter);
+
+      if (!monsterId) {
+        failToLobby('전투 인카운트의 몬스터 목록이 비어 있습니다.');
+        return false;
+      }
+
+      return startCombat(monsterId, progressedRun, {
+        sourceLabel: encounter.name || monsterId,
+        resumeNodeId: renderModel.afterEncounter,
+        restoreNodeId: renderModel.afterEncounter,
+      });
     }
 
-    const entered = enterStoryNode(renderModel.afterEncounter, updatedState, {
-      screen: AppState.STORY,
-    });
-    if (entered) {
-      void queueAutoSave('reward-encounter', getState().currentRun);
+    case 'event':
+    case 'npc':
+    case 'quest':
+    default: {
+      const targetNode = state.gameData?.story?.[encounter.storyNodeId];
+
+      if (!targetNode) {
+        failToLobby('스토리형 인카운트가 올바른 스토리 노드를 가리키지 않습니다.');
+        return false;
+      }
+
+      const returnNodeId = renderModel.afterEncounter || currentRun.currentNodeId || null;
+
+      showToast(encounter.description || encounter.name || '이벤트가 발생했습니다.', 'info');
+      return enterStoryNode(encounter.storyNodeId, progressedRun, {
+        screen: AppState.STORY,
+        returnNodeId,
+      });
     }
-    return entered;
   }
-
-  if (encounter.type === 'combat') {
-    const monsterId = pickEncounterMonsterId(encounter);
-
-    if (!monsterId) {
-      failToLobby('전투 인카운트의 몬스터 목록이 비어 있습니다.');
-      return false;
-    }
-
-    return startCombat(monsterId, progressedRun, {
-      sourceLabel: encounter.name || monsterId,
-      resumeNodeId: renderModel.afterEncounter,
-      restoreNodeId: renderModel.afterEncounter,
-    });
-  }
-
-  if (!['combat', 'reward'].includes(String(encounter.type || '').toLowerCase())) {
-    const targetNode = state.gameData?.story?.[encounter.storyNodeId];
-
-    if (!targetNode) {
-      failToLobby('스토리형 인카운트가 올바른 스토리 노드를 가리키지 않습니다.');
-      return false;
-    }
-
-    const returnNodeId = renderModel.afterEncounter || currentRun.currentNodeId || null;
-
-    showToast(encounter.description || encounter.name || '이벤트가 발생했습니다.', 'info');
-    return enterStoryNode(encounter.storyNodeId, progressedRun, {
-      screen: AppState.STORY,
-      returnNodeId,
-    });
-  }
-
-  failToLobby('알 수 없는 인카운트 타입입니다.');
-  return false;
 }
 
 function resolveRestoreNodeId(run, storyData) {
@@ -1345,13 +1357,25 @@ function handleClassSelect(classId) {
   playSFX('click');
   renderClassSelectionState();
 
-  const nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades, {
-    originId: state.currentRun?.originId || null,
-    originData: getSelectedOrigin(state.gameData, state.currentRun),
-    baseKarma: state.currentRun?.karma,
-  });
+  let nextRun;
+
+  try {
+    nextRun = createInitialRun(classId, state.gameData.config, state.user?.upgrades, {
+      originId: state.currentRun?.originId || null,
+      originData: getSelectedOrigin(state.gameData, state.currentRun),
+      baseKarma: state.currentRun?.karma,
+      classesData: state.gameData.classes,
+    });
+  } catch (error) {
+    classSelectLocked = false;
+    console.error('[app] Failed to create initial run', error);
+    showToast('시작 덱 또는 시작 노드 데이터를 구성하지 못했습니다.', 'error');
+    renderClassSelectionState();
+    return;
+  }
+
   setState({ currentRun: nextRun });
-  if (enterStoryNode('node_prologue', nextRun, { screen: AppState.PROLOGUE })) {
+  if (enterStoryNode(nextRun.currentNodeId, nextRun, { screen: AppState.PROLOGUE })) {
     void queueAutoSave('run-start', getState().currentRun);
   }
 }
@@ -1491,7 +1515,10 @@ async function resolveCombatRound(currentRun, combatState, spinDetail) {
     );
   }
 
-  await renderCombatRoundResult(roundResult, resolvingState, state.gameData?.symbols);
+  await renderCombatRoundResult(roundResult, resolvingState, state.gameData?.symbols, {
+    deck: currentRun.deck,
+    reelRows: state.gameData?.config?.reelRows,
+  });
   const nextRun = {
     ...normalizeRunState(roundResult.playerState),
     currentNodeId: currentRun.currentNodeId,

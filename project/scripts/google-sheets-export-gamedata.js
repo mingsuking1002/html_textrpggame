@@ -18,7 +18,6 @@ const {
 const { PROJECT_PH_SHEET_DEFINITIONS } = require('./google-sheets-project-ph-schema');
 
 const DATA_DIR = path.resolve(__dirname, '..', 'data', 'gamedata');
-const STORY_ENGINE_PATH = path.resolve(__dirname, '..', 'public', 'js', 'story-engine.js');
 
 function parseArgs(argv) {
   const args = {};
@@ -81,6 +80,20 @@ function buildChoiceId(index) {
   return `choice_${index + 1}`;
 }
 
+function normalizeStartingDeckEntry(entry) {
+  if (Array.isArray(entry)) {
+    return {
+      symbolId: entry[0] || '',
+      count: entry[1] ?? '',
+    };
+  }
+
+  return {
+    symbolId: entry?.symbolId || '',
+    count: entry?.count ?? '',
+  };
+}
+
 function getColumnLetter(index) {
   let dividend = index;
   let columnName = '';
@@ -131,35 +144,6 @@ function buildHeaderNoteRequests(definitions, sheets) {
   return requests;
 }
 
-function loadStartingDeckRecipes() {
-  const source = fs.readFileSync(STORY_ENGINE_PATH, 'utf8');
-  const blockMatch = source.match(/const STARTING_DECK_RECIPES = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
-  if (!blockMatch) {
-    return {};
-  }
-
-  const recipes = {};
-  const classPattern = /(\w+):\s*Object\.freeze\(\[([\s\S]*?)\]\s*\)/g;
-  let classMatch = classPattern.exec(blockMatch[1]);
-  while (classMatch) {
-    const classId = classMatch[1];
-    const rows = [];
-    const entryPattern = /\[\s*'([^']+)'\s*,\s*(\d+)\s*\]/g;
-    let entryMatch = entryPattern.exec(classMatch[2]);
-    while (entryMatch) {
-      rows.push({
-        symbolId: entryMatch[1],
-        count: Number(entryMatch[2]),
-      });
-      entryMatch = entryPattern.exec(classMatch[2]);
-    }
-    recipes[classId] = rows;
-    classMatch = classPattern.exec(blockMatch[1]);
-  }
-
-  return recipes;
-}
-
 function buildSheetRows() {
   const classes = readJson('classes.json');
   const config = readJson('config.json');
@@ -169,7 +153,6 @@ function buildSheetRows() {
   const encounters = readJson('encounters.json');
   const story = readJson('story.json');
   const endings = readJson('endings.json');
-  const startingDeckRecipes = loadStartingDeckRecipes();
 
   return {
     classes: Object.entries(classes).map(([id, data]) => [
@@ -186,8 +169,11 @@ function buildSheetRows() {
     class_weapons: Object.entries(classes).flatMap(([classId, data]) => (
       (data.weapons || []).map((symbolId, index) => [classId, symbolId, index + 1])
     )),
-    class_starting_deck: Object.entries(startingDeckRecipes).flatMap(([classId, recipeRows]) => (
-      recipeRows.map((row, index) => [classId, row.symbolId, row.count, index + 1, 'story-engine.js'])
+    class_starting_deck: Object.entries(classes).flatMap(([classId, data]) => (
+      (data.startingDeck || []).map((row, index) => {
+        const normalizedRow = normalizeStartingDeckEntry(row);
+        return [classId, normalizedRow.symbolId, normalizedRow.count, index + 1, 'classes.json'];
+      })
     )),
     origins: Object.entries(origins).map(([id, data]) => [
       id,
@@ -195,6 +181,7 @@ function buildSheetRows() {
       data.icon || '',
       data.description || '',
       data.baseKarma ?? '',
+      data.startNodeId || '',
       toBoolString(data.isEnabled, true),
     ]),
     symbols: Object.entries(symbols).map(([id, data]) => [
@@ -324,6 +311,9 @@ function buildSheetRows() {
       ['core', 'startHp', config.startHp ?? '', 'number', '초기 HP'],
       ['core', 'startGold', config.startGold ?? '', 'number', '초기 골드'],
       ['core', 'bagCapacity', config.bagCapacity ?? '', 'number', '기본 가방 칸 수'],
+      ['core', 'defaultStartNodeId', config.defaultStartNodeId ?? '', 'string', '출신지 미지정 시 시작 노드'],
+      ['core', 'spinCount', config.spinCount ?? '', 'number', '전투 스핀 결과 개수'],
+      ['core', 'reelRows', config.reelRows ?? '', 'number', '파칭코 릴 세로 행 수'],
       ['core', 'rerollCost', config.rerollCost ?? '', 'number', '전투 리롤 비용'],
       ['core', 'armorConstant', config.armorConstant ?? '', 'number', '방어 상수'],
       ['karma', 'initialKarma', config.karma?.initialKarma ?? '', 'number', '출신지 미선택 시 기본 업보'],

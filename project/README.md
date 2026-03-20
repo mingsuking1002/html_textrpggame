@@ -1,6 +1,6 @@
 # PachinkoHero Web RPG
 
-Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_Phase1_AuthAndDataLoad`부터 `SPEC_Phase14_LoadingOptimization`, `SPEC_Karma_Origin_Encounter_Story`까지입니다.
+Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_Phase1_AuthAndDataLoad`부터 `SPEC_Phase14_LoadingOptimization`, `SPEC_Karma_Origin_Encounter_Story`, `SPEC_HardcodeFix_OriginRoute_PachinkoUI`까지입니다.
 
 ## 실행
 
@@ -26,12 +26,14 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 강화 보너스(시작 HP/골드/가방 용량)가 새 런 생성 시 반영
 - 스토리 노드/선택지/조건/효과/상점 처리
 - `originId`, `karma`를 포함한 런 상태와 스토리 상단 업보 표시
+- 직업 시작 덱이 `classes.startingDeck` 데이터에서 구성되고, 출신지별 `startNodeId`로 다른 프롤로그 진입
 - 선택지별 `minKarma` / `maxKarma` 조건, `addKarma` 효과, `karmaHint` 태그 렌더
 - 업보 조건 미충족 선택지 disabled 처리 + 사유 표시
 - 인카운트 타입 확장: `npc`, `quest`는 `storyNodeId` 기반 비전투 스토리 노드로 전이
 - 전투 화면 렌더, 룰렛 스핀 preview/확정/리롤, 순수 전투 엔진, 전투 로그 상한(500), 전리품 드랍
+- 전투 룰렛 UI를 3x3 파칭코 릴로 렌더, 가운데 payline 기준으로 결과 표시
 - 타입 기반 시너지(`config.synergies`) 계산 + 전투 로그/토스트 반영
-- 전투 라운드 연출: 스핀 슬롯 공개, 데미지/회복 숫자 팝업, 적 HP 바 흔들림
+- 전투 라운드 연출: 3열 릴 시간차 정지, 데미지/회복 숫자 팝업, 적 HP 바 흔들림
 - `Users/{uid}.currentRun` Auto-save
 - 저장 트리거: 출신지 선택 직후, 직업 선택 시작 직후, 스토리 선택지 적용 직후, 보상 인카운트 직후, 상점 구매 직후, 전투 진입 직후, 전투 라운드 종료 직후, 전투 종료 직후, 엔딩 진입 직후
 - 로그인 시 활성 런 복구
@@ -42,14 +44,14 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 사운드 UI(볼륨 슬라이더/음소거 토글)는 유지, 실제 BGM/SFX 재생은 임시 비활성화 상태 (`localStorage` 유지)
 - 이미지 placeholder 36개(.webp), 사운드 placeholder 11개(.wav) 포함
 - `firestore.rules`, `.firebaserc`, `node scripts/validate-gamedata.js` 포함
-- GameData 확장: 직업 3종, 출신지 3종, 기물 15종, 몬스터 10종, 인카운트 14종, 스토리 노드 23개, 엔딩 5종
+- GameData 확장: 직업 3종, 출신지 3종, 기물 15종, 몬스터 10종, 인카운트 14종, 스토리 노드 26개, 엔딩 5종
 
 ## 남아 있는 운영 이슈
 
 - `node scripts/upload-gamedata.js --credentials "<service-account.json>"`는 Firestore REST API 업로드 스크립트이며, 서비스 계정과 프로젝트 권한이 필요합니다.
 - `node scripts/google-sheets-smoke-test.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 서비스 계정의 Google Sheets 접근 여부를 읽기 전용으로 검증할 수 있습니다.
 - `node scripts/google-sheets-init-template.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 Project PH용 시트 탭/헤더 템플릿을 한 번에 생성할 수 있습니다.
-- `node scripts/google-sheets-export-gamedata.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 현재 `data/gamedata/*.json`과 시작 덱 레시피를 시트 표 형태로 내보낼 수 있습니다.
+- `node scripts/google-sheets-export-gamedata.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 현재 `data/gamedata/*.json`과 시작 덱/시작 노드 설정을 시트 표 형태로 내보낼 수 있습니다.
 - `node scripts/parse-csv.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>"`로 인증된 Google Sheets API를 통해 8개 GameData JSON을 합성할 수 있습니다. 공개 CSV를 사용할 때만 `--gid-map` 또는 `--sheet-urls`가 필요합니다.
 - `node scripts/google-sheets-upsert-class.js --credentials "<service-account.json>" --spreadsheet "<sheet-url-or-id>" --id gunner --name "거너"`로 클래스 관련 탭에 더미 직업 1개를 추가/갱신할 수 있습니다.
 - Google Sheets 탭명 규칙은 `PascalCase + Data`이며, `story_choices` 같은 legacy snake_case 탭은 템플릿/내보내기 실행 시 `StoryChoiceData`처럼 자동 치환됩니다.
@@ -63,6 +65,7 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 첫 방문 시 boot 후 auth 화면이 노출되는지 확인
 - 로그인 성공 후 GameData 로드가 끝나면 로비 또는 활성 런 화면으로 이동하는지 확인
 - 새 런 시작 시 출신지 선택 화면이 먼저 뜨고, 선택 직후 `currentRun.originId`, `currentRun.karma`가 저장되는지 확인
+- 출신지별로 서로 다른 프롤로그(`node_prologue_village`, `node_prologue_slum`, `node_prologue_noble`)에 진입하는지 확인
 - 활성 런이 있을 때 로그인 직후 `currentNodeId` 기준으로 복구되는지 확인
 - 출신지 선택 후 새로고침하면 직업 선택 단계로, 직업 선택 후 새로고침하면 프롤로그/스토리 단계로 복구되는지 확인
 - 강화 화면에서 결정 차감/강화 레벨 증가/세이브 롤백이 정상 동작하는지 확인
@@ -70,8 +73,8 @@ Firebase Hosting 기준 정적 웹 앱입니다. 현재 구현 범위는 `SPEC_P
 - 스토리 화면 상단에 업보 수치가 표시되고, 업보 조건 미달 선택지는 disabled + 사유 문구가 표시되는지 확인
 - `npc`, `quest` 인카운트가 전투 없이 스토리 노드로 진입하고 선택 후 원래 루프로 복귀하는지 확인
 - 스토리에서 combat 인카운트가 발생하면 전투 화면으로 전환되는지 확인
-- 룰렛 스핀 후 preview 결과가 보이고, 리롤/결과 확정/시너지 로그가 정상 동작하는지 확인
-- 슬롯 공개/데미지 숫자/HP 바 연출과 500개 로그 상한이 정상 동작하는지 확인
+- 룰렛 스핀 후 3x3 파칭코 릴 preview 결과가 보이고, 리롤/결과 확정/시너지 로그가 정상 동작하는지 확인
+- 릴이 좌측부터 시간차로 정지하고, 가운데 payline/데미지 숫자/HP 바 연출과 500개 로그 상한이 정상 동작하는지 확인
 - 전투 승리 후 골드/전리품이 반영되고 `afterEncounter` 또는 `onWin` 노드로 이동하는지 확인
 - 전투 라운드 직후와 상점 구매 직후에 Firestore `Users/{uid}.currentRun`이 갱신되는지 확인
 - 새로고침 후 전투 진행 중이던 런은 COMBAT 화면과 적 HP 상태까지 복구되는지 확인

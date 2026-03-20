@@ -55,7 +55,7 @@ const PROJECT_PH_SHEET_DEFINITIONS = Object.freeze([
   defineSheet(
     'origins',
     'OriginData',
-    ['id', 'name', 'icon', 'description', 'base_karma', 'is_enabled'],
+    ['id', 'name', 'icon', 'description', 'base_karma', 'start_node_id', 'is_enabled'],
     ['origins'],
     [
       '출신지 고유 ID입니다.',
@@ -63,6 +63,7 @@ const PROJECT_PH_SHEET_DEFINITIONS = Object.freeze([
       '출신지 아이콘 경로입니다.',
       '출신지 설명 문구입니다.',
       '이 출신지를 선택했을 때 시작 업보 수치입니다.',
+      '직업 선택 직후 진입할 시작 스토리 노드 ID입니다.',
       'TRUE면 선택 가능, FALSE면 숨김/비활성화합니다.',
     ],
   ),

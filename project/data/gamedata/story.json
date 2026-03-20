@@ -25,6 +25,102 @@
     ],
     "onEnter": {}
   },
+  "node_prologue_village": {
+    "title": "시골 마을의 아침",
+    "text": "평화로운 밭길 위로 안개가 걷힌다. 마을 장로는 바깥세상으로 나가 흔들리는 길들을 바로잡아 달라고 부탁한다.",
+    "type": "narrative",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "장로의 지도를 들고 숲길로 향한다",
+        "nextNodeId": "node_forest_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_village",
+            "chose_forest"
+          ]
+        }
+      },
+      {
+        "id": "choice_2",
+        "text": "어부들의 배웅을 받으며 해안길로 간다",
+        "nextNodeId": "node_coast_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_village",
+            "chose_coast"
+          ]
+        }
+      }
+    ],
+    "onEnter": {}
+  },
+  "node_prologue_slum": {
+    "title": "빈민굴의 새벽",
+    "text": "새벽 시장의 소음이 가라앉자 비밀 통로와 뒷골목 지도가 손에 들어온다. 이번에는 운이 아니라 선택으로 살아남아야 한다.",
+    "type": "narrative",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "경비가 적은 숲 외곽으로 빠져나간다",
+        "nextNodeId": "node_forest_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_slum",
+            "chose_forest"
+          ]
+        }
+      },
+      {
+        "id": "choice_2",
+        "text": "밀수꾼이 쓰는 해안길을 탄다",
+        "nextNodeId": "node_coast_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_slum",
+            "chose_coast"
+          ]
+        }
+      }
+    ],
+    "onEnter": {}
+  },
+  "node_prologue_noble": {
+    "title": "귀족 저택의 호출",
+    "text": "가문의 집사는 봉인된 서신과 함께 외부 정세가 흔들리고 있다고 전한다. 체면을 지키려면 직접 움직여야 할 시점이다.",
+    "type": "narrative",
+    "choices": [
+      {
+        "id": "choice_1",
+        "text": "영지 숲을 시찰하며 정면으로 진입한다",
+        "nextNodeId": "node_forest_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_noble",
+            "chose_forest"
+          ]
+        }
+      },
+      {
+        "id": "choice_2",
+        "text": "상단이 오가는 해안길로 세력을 살핀다",
+        "nextNodeId": "node_coast_entry",
+        "conditions": {},
+        "effects": {
+          "addFlag": [
+            "origin_noble",
+            "chose_coast"
+          ]
+        }
+      }
+    ],
+    "onEnter": {}
+  },
   "node_forest_entry": {
     "title": "어두운 숲",
     "text": "울창한 나무 사이에서 낙엽이 바스락거린다. 숲은 첫 시험을 준비하고 있다.",

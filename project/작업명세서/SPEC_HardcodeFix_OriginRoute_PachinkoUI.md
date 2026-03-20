@@ -1,4 +1,4 @@
-# 🟡 대기중
+# 🟢 완료
 
 ---
 
@@ -467,6 +467,6 @@ export async function animateSpinSlots(spinEntries, symbolsData, deck) {
 5. **모바일 대응:** 릴 셀 높이를 `min(120px, 25vw)`로 반응형 처리. 3열 그리드 유지.
 
 ---
-* **Status:** `🟡 대기중`
+* **Status:** `🟢 완료`
 * **Created:** `2026-03-13`
 * **Author:** `PachinkoHero TD`

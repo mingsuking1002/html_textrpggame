@@ -4,14 +4,15 @@
  * DOM 렌더링 담당
  */
 
+import { buildReelDisplay } from '@ph/combat-engine';
 import { isMuted, playSFX } from '@ph/sound-manager';
 
 const LOG_LIMIT = 500;
 const TOAST_LIMIT = 4;
 const TOAST_DURATION_MS = 3800;
-const COMBAT_SLOT_REVEAL_MS = 140;
 const COMBAT_ANIMATION_STEP_MS = 260;
 const BOOT_PROGRESS_REVEAL_MS = 300;
+const PACHINKO_STOP_SCHEDULE_MS = Object.freeze([600, 1000, 1400]);
 
 let elements = null;
 let uiHandlers = {};
@@ -269,12 +270,103 @@ function createSpinSlot(entry) {
   return slot;
 }
 
-function appendSpinSummary(spinDetail) {
-  const dom = getElements();
+function createPachinkoCell(entry, rowIndex, centerRowIndex) {
+  const cell = document.createElement('article');
+  cell.className = 'pachinko-cell';
 
+  if (rowIndex === centerRowIndex) {
+    cell.classList.add('center');
+  } else {
+    cell.classList.add('decorative');
+  }
+
+  if (!entry || entry.symbolId === 'empty') {
+    cell.append(createTextElement('span', 'deck-slot-empty', 'EMPTY'));
+    return cell;
+  }
+
+  cell.append(createIcon(
+    entry.icon || '',
+    `${entry.name || entry.symbolId || '기물'} 아이콘`,
+    'entity-icon deck-slot-icon pachinko-icon',
+  ));
+  cell.append(createTextElement('strong', 'deck-slot-name', entry.name || entry.symbolId || '알 수 없음'));
+  cell.append(createTextElement('span', 'entity-subtle', `${entry.type || 'item'} · ${formatNumber(entry.value)}`));
+  return cell;
+}
+
+function ensureSpinSummaryHost() {
+  const dom = getElements();
+  let summaryHost = dom.combatSpinResult.querySelector('.spin-result-summary');
+
+  if (!summaryHost) {
+    summaryHost = document.createElement('div');
+    summaryHost.className = 'spin-result-summary';
+    dom.combatSpinResult.append(summaryHost);
+  }
+
+  clearChildren(summaryHost);
+  return summaryHost;
+}
+
+function renderPachinkoMachine(spinDetail, deck, symbolsData, reelRows = 3, options = {}) {
+  const dom = getElements();
+  const emptyMessage = options.emptyMessage || '아직 스핀 결과가 없습니다.';
+  const hasEntries = Array.isArray(spinDetail?.entries) && spinDetail.entries.length > 0;
+
+  clearChildren(dom.combatSpinResult);
+
+  if (!hasEntries) {
+    dom.combatSpinResult.append(createTextElement('p', 'entity-subtle', emptyMessage));
+    return null;
+  }
+
+  const reelDisplay = buildReelDisplay(spinDetail, deck, symbolsData, reelRows);
+  const machine = document.createElement('div');
+  machine.className = 'pachinko-machine';
+
+  const payline = document.createElement('div');
+  payline.className = 'pachinko-payline';
+
+  const reels = document.createElement('div');
+  reels.className = 'pachinko-reels';
+
+  const reelNodes = reelDisplay.reels.map((reelEntries, reelIndex) => {
+    const reel = document.createElement('div');
+    reel.className = 'pachinko-reel';
+    reel.dataset.reel = String(reelIndex);
+
+    const strip = document.createElement('div');
+    strip.className = 'pachinko-reel-strip';
+
+    const fragment = document.createDocumentFragment();
+    reelEntries.forEach((entry, rowIndex) => {
+      fragment.append(createPachinkoCell(entry, rowIndex, reelDisplay.centerRowIndex));
+    });
+    strip.append(fragment);
+    reel.append(strip);
+    reels.append(reel);
+    return reel;
+  });
+
+  machine.append(payline);
+  machine.append(reels);
+  dom.combatSpinResult.append(machine);
+  ensureSpinSummaryHost();
+
+  return {
+    machine,
+    reels: reelNodes,
+    reelDisplay,
+  };
+}
+
+function appendSpinSummary(spinDetail) {
   if (!spinDetail) {
     return;
   }
+
+  const summaryHost = ensureSpinSummaryHost();
 
   const summaryParts = [
     `공격 ${formatNumber(spinDetail?.finalTotals?.attack ?? spinDetail?.attackTotal)}`,
@@ -282,7 +374,7 @@ function appendSpinSummary(spinDetail) {
     `회복 ${formatNumber(spinDetail?.finalTotals?.heal ?? spinDetail?.healTotal)}`,
   ];
 
-  dom.combatSpinResult.append(createTextElement(
+  summaryHost.append(createTextElement(
     'p',
     'entity-subtle spin-summary',
     summaryParts.join(' · '),
@@ -294,7 +386,7 @@ function appendSpinSummary(spinDetail) {
     spinDetail.synergies.forEach((synergy) => {
       synergyRow.append(createChip(`${synergy.label} +${formatNumber(synergy.bonus)}`, 'chip chip-accent'));
     });
-    dom.combatSpinResult.append(synergyRow);
+    summaryHost.append(synergyRow);
   }
 }
 
@@ -848,11 +940,7 @@ export function renderCombatScreen(combatState, currentRun, gameData) {
   const enemy = combatState?.enemy || null;
   const currentEnemyHp = Math.max(0, Number(combatState?.currentEnemyHp || 0));
   const enemyMaxHp = Math.max(1, Number(enemy?.hp || 1));
-  const lastSpinEntries = Array.isArray(combatState?.lastSpinResult?.entries)
-    ? combatState.lastSpinResult.entries
-    : [];
   const deckFragment = document.createDocumentFragment();
-  const spinFragment = document.createDocumentFragment();
 
   dom.combatSource.textContent = combatState?.sourceLabel
     ? `${combatState.sourceLabel} 전투`
@@ -881,14 +969,13 @@ export function renderCombatScreen(combatState, currentRun, gameData) {
   });
   dom.combatDeckGrid.append(deckFragment);
 
-  clearChildren(dom.combatSpinResult);
-  if (lastSpinEntries.length === 0) {
-    dom.combatSpinResult.append(createTextElement('p', 'entity-subtle', '아직 스핀 결과가 없습니다.'));
-  } else {
-    lastSpinEntries.forEach((entry) => {
-      spinFragment.append(createSpinSlot(entry));
-    });
-    dom.combatSpinResult.append(spinFragment);
+  const pachinkoView = renderPachinkoMachine(
+    combatState?.lastSpinResult,
+    currentRun?.deck,
+    gameData?.symbols,
+    gameData?.config?.reelRows,
+  );
+  if (pachinkoView) {
     appendSpinSummary(combatState.lastSpinResult);
   }
 
@@ -922,34 +1009,41 @@ export function renderCombat(combatState, currentRun, gameData) {
   renderCombatScreen(combatState, currentRun, gameData);
 }
 
-export async function animateSpinSlots(spinEntries, symbolsData) {
-  const dom = getElements();
+export async function animateSpinSlots(spinEntries, symbolsData, options = {}) {
   const entries = Array.isArray(spinEntries) ? spinEntries : [];
+  const pachinkoView = renderPachinkoMachine(
+    { entries },
+    options.deck,
+    symbolsData,
+    options.reelRows,
+    { emptyMessage: '공격할 기물이 없습니다.' },
+  );
 
-  clearChildren(dom.combatSpinResult);
-
-  if (entries.length === 0) {
-    dom.combatSpinResult.append(createTextElement('p', 'entity-subtle', '공격할 기물이 없습니다.'));
+  if (!pachinkoView) {
     return;
   }
 
-  for (const rawEntry of entries) {
-    const symbolData = symbolsData?.[rawEntry?.symbolId] || {};
-    const normalizedEntry = {
-      ...rawEntry,
-      name: rawEntry?.name || symbolData.name || rawEntry?.symbolId || '알 수 없음',
-      type: rawEntry?.type || symbolData.type || 'item',
-      value: Number(rawEntry?.value ?? symbolData.value ?? 0),
-      icon: rawEntry?.icon || symbolData.icon || '',
-    };
-    const slot = createSpinSlot(normalizedEntry);
-    slot.classList.add('spin-slot-pending');
-    dom.combatSpinResult.append(slot);
-    await wait(40);
-    slot.classList.remove('spin-slot-pending');
-    slot.classList.add('spin-slot-anim');
-    await wait(COMBAT_SLOT_REVEAL_MS);
+  pachinkoView.reels.forEach((reel) => {
+    reel.classList.add('spinning');
+  });
+
+  let elapsedMs = 0;
+  for (let index = 0; index < pachinkoView.reels.length; index += 1) {
+    const targetStopMs = PACHINKO_STOP_SCHEDULE_MS[index] || PACHINKO_STOP_SCHEDULE_MS[PACHINKO_STOP_SCHEDULE_MS.length - 1];
+    await wait(Math.max(0, targetStopMs - elapsedMs));
+    elapsedMs = targetStopMs;
+
+    const reel = pachinkoView.reels[index];
+    reel.classList.remove('spinning');
+    reel.classList.add('stopping');
+    playSFX('spin');
+    await wait(220);
+    reel.classList.remove('stopping');
+    reel.classList.add('settled');
   }
+
+  pachinkoView.machine.classList.add('is-settled');
+  await wait(180);
 }
 
 export function animateDamageNumber(targetEl, amount, type) {
@@ -966,7 +1060,7 @@ export function animateDamageNumber(targetEl, amount, type) {
   }, 820);
 }
 
-export async function renderCombatRoundResult(roundResult, combatState, symbolsData) {
+export async function renderCombatRoundResult(roundResult, combatState, symbolsData, options = {}) {
   const dom = getElements();
   const spinDetail = roundResult?.spinDetail || null;
   const enemyMaxHp = Math.max(1, Number(combatState?.enemy?.hp || 1));
@@ -975,7 +1069,7 @@ export async function renderCombatRoundResult(roundResult, combatState, symbolsD
   const enemyDamage = extractEventValue(roundResult?.events, 'enemy_attack');
 
   dom.combatSpinStatus.textContent = '룰렛이 회전합니다...';
-  await animateSpinSlots(spinDetail?.entries || [], symbolsData);
+  await animateSpinSlots(spinDetail?.entries || [], symbolsData, options);
   appendSpinSummary(spinDetail);
   await wait(COMBAT_ANIMATION_STEP_MS);
 

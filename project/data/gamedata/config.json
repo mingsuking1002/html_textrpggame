@@ -2,6 +2,9 @@
   "startHp": 80,
   "startGold": 100,
   "bagCapacity": 20,
+  "defaultStartNodeId": "node_prologue",
+  "spinCount": 3,
+  "reelRows": 3,
   "rerollCost": 25,
   "armorConstant": 15,
   "karma": {

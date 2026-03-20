@@ -17,6 +17,7 @@ function pushError(errors, message) {
 }
 
 function validate() {
+  const config = readJson('config.json');
   const classes = readJson('classes.json');
   const origins = readJson('origins.json');
   const symbols = readJson('symbols.json');
@@ -33,6 +34,22 @@ function validate() {
         pushError(errors, `classes.${classId}.weapons references missing symbol: ${symbolId}`);
       }
     });
+
+    (classData.startingDeck || []).forEach((entry, index) => {
+      if (!hasKey(symbols, entry.symbolId)) {
+        pushError(errors, `classes.${classId}.startingDeck[${index}] references missing symbol: ${entry.symbolId}`);
+      }
+    });
+  });
+
+  if (config.defaultStartNodeId && !hasKey(story, config.defaultStartNodeId)) {
+    pushError(errors, `config.defaultStartNodeId references missing story node: ${config.defaultStartNodeId}`);
+  }
+
+  Object.entries(origins).forEach(([originId, originData]) => {
+    if (originData.startNodeId && !hasKey(story, originData.startNodeId)) {
+      pushError(errors, `origins.${originId}.startNodeId references missing story node: ${originData.startNodeId}`);
+    }
   });
 
   Object.entries(monsters).forEach(([monsterId, monsterData]) => {

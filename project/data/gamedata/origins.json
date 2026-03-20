@@ -4,6 +4,7 @@
     "icon": "/assets/images/origins/village.webp",
     "description": "평화로운 마을에서 자란 당신은 타인을 돕는 데 익숙하다.",
     "baseKarma": 10,
+    "startNodeId": "node_prologue_village",
     "isEnabled": true
   },
   "origin_slum": {
@@ -11,6 +12,7 @@
     "icon": "/assets/images/origins/slum.webp",
     "description": "거친 골목에서 살아남은 당신은 손해 보는 선택을 경계한다.",
     "baseKarma": -10,
+    "startNodeId": "node_prologue_slum",
     "isEnabled": true
   },
   "origin_noble": {
@@ -18,6 +20,7 @@
     "icon": "/assets/images/origins/noble.webp",
     "description": "예법과 책임 사이에서 자란 당신은 체면과 실리를 함께 따진다.",
     "baseKarma": 5,
+    "startNodeId": "node_prologue_noble",
     "isEnabled": true
   }
 }

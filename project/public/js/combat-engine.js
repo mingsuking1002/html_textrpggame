@@ -47,6 +47,31 @@ function buildSpinEntry(symbolId, symbolsData) {
   };
 }
 
+function normalizeDisplayEntry(entry, symbolsData) {
+  if (!entry) {
+    return buildSpinEntry('empty', symbolsData);
+  }
+
+  if (typeof entry === 'string') {
+    return buildSpinEntry(entry, symbolsData);
+  }
+
+  if (entry.symbolId) {
+    const baseEntry = buildSpinEntry(entry.symbolId, symbolsData);
+    return {
+      ...baseEntry,
+      ...entry,
+      symbolId: entry.symbolId,
+      name: entry.name || baseEntry.name,
+      type: entry.type || baseEntry.type,
+      value: Math.max(0, toFiniteNumber(entry.value, baseEntry.value)),
+      icon: entry.icon || baseEntry.icon,
+    };
+  }
+
+  return buildSpinEntry('empty', symbolsData);
+}
+
 function calculateTypeCounts(entries = []) {
   return entries.reduce((accumulator, entry) => {
     const type = entry?.type || 'empty';
@@ -316,6 +341,41 @@ export function spin(deck, symbolsData, options = {}) {
   });
 
   return enhanceSpinDetail(baseSpinDetail, options.synergyDefs);
+}
+
+export function buildReelDisplay(spinResult, deck, symbolsData, reelRows = 3, randomFn = Math.random) {
+  const filledDeck = getFilledDeck(deck);
+  const normalizedRows = Math.max(3, toFiniteNumber(reelRows, 3));
+  const visibleRows = normalizedRows % 2 === 0 ? normalizedRows + 1 : normalizedRows;
+  const centerRowIndex = Math.floor(visibleRows / 2);
+  const reelCount = 3;
+  const resultEntries = Array.isArray(spinResult?.entries)
+    ? spinResult.entries.slice(0, reelCount).map((entry) => normalizeDisplayEntry(entry, symbolsData))
+    : [];
+
+  const pickDecorativeEntry = () => {
+    if (filledDeck.length === 0) {
+      return buildSpinEntry('empty', symbolsData);
+    }
+
+    const pickIndex = Math.floor(randomFn() * filledDeck.length);
+    return buildSpinEntry(filledDeck[pickIndex], symbolsData);
+  };
+
+  const reels = Array.from({ length: reelCount }, (_, reelIndex) => {
+    const centerEntry = resultEntries[reelIndex] || buildSpinEntry('empty', symbolsData);
+    return Array.from({ length: visibleRows }, (_, rowIndex) => (
+      rowIndex === centerRowIndex ? centerEntry : pickDecorativeEntry()
+    ));
+  });
+
+  return {
+    reels,
+    reelCount,
+    reelRows: visibleRows,
+    centerRowIndex,
+    paylineEntries: reels.map((reel) => reel[centerRowIndex]),
+  };
 }
 
 /**

@@ -522,6 +522,7 @@ function buildOriginsJson(sheetRows) {
       icon: pickField(row, ['icon']) || '',
       description: pickField(row, ['description']) || '',
       baseKarma: toFiniteNumber(pickField(row, ['base_karma']), 0),
+      startNodeId: pickField(row, ['start_node_id']) || '',
       isEnabled: toBoolean(pickField(row, ['is_enabled']), true),
     };
 
@@ -863,7 +864,7 @@ function validateReferences(datasets) {
     printer(`${level.toUpperCase()}: ${message}`);
   };
 
-  const { classes, symbols, monsters, encounters, story, endings } = datasets;
+  const { config, classes, origins, symbols, monsters, encounters, story, endings } = datasets;
 
   Object.entries(classes).forEach(([classId, classData]) => {
     (classData.weapons || []).forEach((symbolId) => {
@@ -877,6 +878,16 @@ function validateReferences(datasets) {
         pushIssue('error', `classes.${classId}.startingDeck[${index}] references missing symbol: ${entry.symbolId}`);
       }
     });
+  });
+
+  if (config?.defaultStartNodeId && !story[config.defaultStartNodeId]) {
+    pushIssue('error', `config.defaultStartNodeId references missing story node: ${config.defaultStartNodeId}`);
+  }
+
+  Object.entries(origins).forEach(([originId, originData]) => {
+    if (originData.startNodeId && !story[originData.startNodeId]) {
+      pushIssue('error', `origins.${originId}.startNodeId references missing story node: ${originData.startNodeId}`);
+    }
   });
 
   Object.entries(monsters).forEach(([monsterId, monsterData]) => {

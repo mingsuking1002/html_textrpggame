@@ -4,21 +4,6 @@
  * 스토리 노드/선택지 엔진 (데이터 기반, 순수 로직 중심)
  */
 
-const STARTING_DECK_RECIPES = Object.freeze({
-  warrior: Object.freeze([
-    ['sword', 2],
-    ['mace', 1],
-    ['hammer', 1],
-  ]),
-  archer: Object.freeze([
-    ['bow', 2],
-    ['crossbow', 2],
-  ]),
-  mage: Object.freeze([
-    ['staff', 2],
-    ['dagger', 2],
-  ]),
-});
 const DEFAULT_KARMA_MIN = -100;
 const DEFAULT_KARMA_MAX = 100;
 
@@ -115,6 +100,39 @@ function resolveKarmaBounds(config = null) {
   };
 }
 
+function normalizeDeckRecipeEntry(entry) {
+  if (Array.isArray(entry)) {
+    return {
+      symbolId: String(entry[0] || '').trim(),
+      count: Math.max(0, toFiniteNumber(entry[1], 0)),
+    };
+  }
+
+  if (entry && typeof entry === 'object') {
+    return {
+      symbolId: String(entry.symbolId || entry.id || '').trim(),
+      count: Math.max(0, toFiniteNumber(entry.count, 0)),
+    };
+  }
+
+  return {
+    symbolId: '',
+    count: 0,
+  };
+}
+
+function resolveStartNodeId(config = {}, options = {}) {
+  if (typeof options?.originData?.startNodeId === 'string' && options.originData.startNodeId.trim()) {
+    return options.originData.startNodeId.trim();
+  }
+
+  if (typeof config?.defaultStartNodeId === 'string' && config.defaultStartNodeId.trim()) {
+    return config.defaultStartNodeId.trim();
+  }
+
+  return 'node_prologue';
+}
+
 export function createInactiveRunState(overrides = {}) {
   return {
     isActive: false,
@@ -161,16 +179,21 @@ export function normalizeRunState(playerState = null) {
   };
 }
 
-export function buildInitialDeck(classId, bagCapacity) {
-  const recipe = STARTING_DECK_RECIPES[classId];
+export function buildInitialDeck(classId, bagCapacity, classesData = {}) {
+  const classInfo = typeof classId === 'object' && classId !== null
+    ? classId
+    : classesData?.[classId];
+  const recipe = Array.isArray(classInfo?.startingDeck)
+    ? classInfo.startingDeck.map(normalizeDeckRecipeEntry).filter((entry) => entry.symbolId && entry.count > 0)
+    : [];
 
-  if (!recipe) {
-    throw new Error(`Unsupported classId: ${classId}`);
+  if (recipe.length === 0) {
+    throw new Error(`No starting deck recipe for classId: ${classId}`);
   }
 
   const deck = [];
 
-  recipe.forEach(([symbolId, count]) => {
+  recipe.forEach(({ symbolId, count }) => {
     for (let index = 0; index < count; index += 1) {
       deck.push(symbolId);
     }
@@ -186,6 +209,9 @@ export function buildInitialDeck(classId, bagCapacity) {
 export function createInitialRun(classId, config, userUpgrades = {}, options = {}) {
   const upgradeBonuses = calculateUpgradeBonuses(config, userUpgrades);
   const karmaBounds = resolveKarmaBounds(config);
+  const classesData = options?.classesData && typeof options.classesData === 'object'
+    ? options.classesData
+    : {};
   const originData = options?.originData && typeof options.originData === 'object'
     ? options.originData
     : null;
@@ -213,9 +239,9 @@ export function createInitialRun(classId, config, userUpgrades = {}, options = {
     hp: normalizedConfig.startHp,
     maxHp: normalizedConfig.startHp,
     gold: normalizedConfig.startGold,
-    deck: buildInitialDeck(classId, normalizedConfig.bagCapacity),
+    deck: buildInitialDeck(classId, normalizedConfig.bagCapacity, classesData),
     flags: [],
-    currentNodeId: 'node_prologue',
+    currentNodeId: resolveStartNodeId(config, options),
     encounterHistory: [],
     blockedReason: null,
     combatContext: null,

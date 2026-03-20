@@ -632,30 +632,118 @@
       font-size: 0.9rem;
     }
 
-    .spin-result-grid {
+    .pachinko-result-shell {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
 
-    .spin-slot {
+    .pachinko-machine {
+      --pachinko-cell-size: min(112px, 24vw);
+      position: relative;
+      padding: 16px;
+      border-radius: 24px;
+      border: 3px solid rgba(245, 158, 11, 0.32);
+      background:
+        radial-gradient(circle at top, rgba(245, 158, 11, 0.18), transparent 35%),
+        linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.92) 45%, rgba(17, 37, 70, 0.98));
+      box-shadow:
+        inset 0 0 60px rgba(2, 6, 23, 0.68),
+        0 16px 36px rgba(2, 6, 23, 0.3);
+      overflow: hidden;
+    }
+
+    .pachinko-reels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pachinko-reel {
+      min-width: 0;
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(2, 6, 23, 0.76);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: inset 0 0 26px rgba(2, 6, 23, 0.5);
+    }
+
+    .pachinko-reel-strip {
+      display: flex;
+      flex-direction: column;
+      will-change: transform;
+    }
+
+    .pachinko-cell {
       display: grid;
       justify-items: center;
-      gap: 10px;
-      padding: 14px 12px;
-      border-radius: 18px;
-      background: rgba(51, 65, 85, 0.38);
-      border: 1px solid rgba(148, 163, 184, 0.14);
+      align-content: center;
+      gap: 8px;
+      min-height: var(--pachinko-cell-size);
+      padding: 12px 10px;
       text-align: center;
-      transform-origin: center;
+      background: rgba(30, 41, 59, 0.48);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
     }
 
-    .spin-slot-pending {
-      opacity: 0;
+    .pachinko-cell:last-child {
+      border-bottom: 0;
+    }
+
+    .pachinko-cell.decorative {
+      opacity: 0.58;
+    }
+
+    .pachinko-cell.center {
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.16), rgba(245, 158, 11, 0.08));
+      border-top: 1px solid rgba(245, 158, 11, 0.35);
+      border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .pachinko-icon {
+      width: 44px;
+      height: 44px;
+    }
+
+    .pachinko-payline {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 50%;
+      height: 2px;
+      transform: translateY(-50%);
+      background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.82), transparent);
+      opacity: 0.72;
+      pointer-events: none;
+      z-index: 2;
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.32);
+    }
+
+    .pachinko-machine.is-settled .pachinko-payline {
+      opacity: 1;
+      box-shadow: 0 0 28px rgba(245, 158, 11, 0.5);
+    }
+
+    .pachinko-reel.spinning .pachinko-reel-strip {
+      animation: reel-spin 180ms linear infinite;
+    }
+
+    .pachinko-reel.stopping .pachinko-reel-strip {
+      animation: reel-stop 380ms ease-out forwards;
+    }
+
+    .pachinko-reel.settled .pachinko-cell.center {
+      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3);
+    }
+
+    .spin-result-summary {
+      display: grid;
+      gap: 10px;
     }
 
     .spin-summary {
-      grid-column: 1 / -1;
+      margin: 0;
     }
 
     .damage-number {
@@ -682,22 +770,28 @@
       color: var(--success);
     }
 
-    .spin-slot-anim {
-      animation: slot-reveal 300ms ease forwards;
-    }
-
     .shake {
       animation: shake 200ms ease;
     }
 
-    @keyframes slot-reveal {
+    @keyframes reel-spin {
       0% {
-        transform: rotateX(90deg);
-        opacity: 0;
+        transform: translateY(0);
       }
       100% {
-        transform: rotateX(0deg);
-        opacity: 1;
+        transform: translateY(calc(var(--pachinko-cell-size) * -1));
+      }
+    }
+
+    @keyframes reel-stop {
+      0% {
+        transform: translateY(calc(var(--pachinko-cell-size) * -0.28));
+      }
+      60% {
+        transform: translateY(calc(var(--pachinko-cell-size) * 0.06));
+      }
+      100% {
+        transform: translateY(0);
       }
     }
 
@@ -839,6 +933,15 @@
         margin: 16px auto 0;
         width: min(100% - 24px, 900px);
       }
+
+      .pachinko-machine {
+        --pachinko-cell-size: min(92px, 25vw);
+        padding: 14px;
+      }
+
+      .pachinko-reels {
+        gap: 8px;
+      }
     }
   </style>
   <script type="importmap">
@@ -847,14 +950,14 @@
         "firebase/app": "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js",
         "firebase/auth": "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js",
         "firebase/firestore": "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js",
-        "@ph/app": "/js/app.js?v=20260313-cachefix-1",
-        "@ph/combat-engine": "/js/combat-engine.js?v=20260313-cachefix-1",
-        "@ph/db-manager": "/js/db-manager.js?v=20260313-cachefix-1",
-        "@ph/firebase-init": "/js/firebase-init.js?v=20260313-cachefix-1",
-        "@ph/game-state": "/js/game-state.js?v=20260313-cachefix-1",
-        "@ph/sound-manager": "/js/sound-manager.js?v=20260313-cachefix-1",
-        "@ph/story-engine": "/js/story-engine.js?v=20260313-cachefix-1",
-        "@ph/ui-renderer": "/js/ui-renderer.js?v=20260313-cachefix-1"
+        "@ph/app": "/js/app.js?v=20260313-hardcodefix-1",
+        "@ph/combat-engine": "/js/combat-engine.js?v=20260313-hardcodefix-1",
+        "@ph/db-manager": "/js/db-manager.js?v=20260313-hardcodefix-1",
+        "@ph/firebase-init": "/js/firebase-init.js?v=20260313-hardcodefix-1",
+        "@ph/game-state": "/js/game-state.js?v=20260313-hardcodefix-1",
+        "@ph/sound-manager": "/js/sound-manager.js?v=20260313-hardcodefix-1",
+        "@ph/story-engine": "/js/story-engine.js?v=20260313-hardcodefix-1",
+        "@ph/ui-renderer": "/js/ui-renderer.js?v=20260313-hardcodefix-1"
       }
     }
   </script>
@@ -1078,7 +1181,7 @@
             </div>
             <p id="combat-spin-status" class="status-text">스핀 버튼으로 다음 턴을 진행합니다.</p>
             <p id="combat-reroll-status" class="status-text" hidden></p>
-            <div id="combat-spin-result" class="spin-result-grid"></div>
+            <div id="combat-spin-result" class="pachinko-result-shell" aria-live="polite"></div>
           </div>
         </div>
 

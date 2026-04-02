@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "시스템기획_05_운영데이터와사운드.md",
+                "file": "시스템기획_01_플랫폼과메타.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "시스템기획_05_운영데이터와사운드"
+              "title": "시스템기획_01_플랫폼과메타"
             }
           }
         ]
@@ -183,13 +183,16 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "fa1500bedbaa6fa5",
+  "active": "44948434cb9d79e0",
   "lastOpenFiles": [
-    "시스템기획_03_전투.md",
+    "시스템기획_02_런시작과스토리.md",
     "시스템기획_04_저장과엔딩.md",
     "시스템기획_05_운영데이터와사운드.md",
+    "SPEC_Karma_Origin_Encounter_Story.md",
+    "README.md",
+    "ARCHITECTURE.md",
     "전체시스템_기획서.md",
-    "시스템기획_02_런시작과스토리.md",
+    "시스템기획_03_전투.md",
     "시스템기획_01_플랫폼과메타.md"
   ]
 }
